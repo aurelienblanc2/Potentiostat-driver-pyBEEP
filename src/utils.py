@@ -1,4 +1,3 @@
-import os
 import datetime
 import tkinter as tk
 import tkinter.filedialog as fd

@@ -5,10 +5,10 @@ from typing import Optional
 from time import time_ns
 import minimalmodbus
 
-from device import PotentiostatDevice
-from logger import DataLogger
-from plotter import plot_dual_channel
-from utils import default_filepath
+from .device import PotentiostatDevice
+from .logger import DataLogger
+from .plotter import plot_dual_channel
+from .utils import default_filepath
 
 
 class PotentiostatController:
