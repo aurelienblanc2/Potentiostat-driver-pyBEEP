@@ -4,6 +4,7 @@ import threading
 from typing import Optional
 from time import time_ns
 import minimalmodbus
+from fontTools.misc.plistlib import dumps
 
 from .device import PotentiostatDevice
 from .logger import DataLogger
@@ -124,6 +125,15 @@ class PotentiostatController:
         
         if plot:
             plot_dual_channel(filepath)
+            
+    def apply_OCP(self,
+                  duration: float,
+                  tia_gain: Optional[int] = 0,
+                  filepath: Optional[str] = None,
+                  plot: bool = False,
+                  ) -> None:
+        self.apply_cp(current=0, duration=duration, tia_gain=tia_gain,
+                      filepath=filepath, plot=plot)
 
     def _read_write_data_pid_active(self,
                                    current: float,
