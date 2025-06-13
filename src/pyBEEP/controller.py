@@ -233,7 +233,7 @@ class PotentiostatController:
         print(f"Write list element count {len(write_list)}.\n")
         n_items = len(write_list)
 
-        self._setup_measurement(tia_gain=tia_gain, fifo_start=True)
+        self._setup_measurement(tia_gain=tia_gain, fifo_start=True, clear_fifo=True)
 
         # Send and collect data
         i = 0
