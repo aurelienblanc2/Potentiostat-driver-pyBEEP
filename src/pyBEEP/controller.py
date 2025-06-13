@@ -70,7 +70,7 @@ class PotentiostatController:
                 lambda q: self._read_write_data_pid_active(q, current, duration, tia_gain),
                 filepath)
         elif mode_config["type"] == "pid_inactive":
-            waveform = mode_config["waveform_func"](mode, *args, **kwargs)
+            waveform = mode_config["waveform_func"](mode_config["type"], *args, **kwargs)
             self._run_measurement(lambda q: self._read_write_data_pid_inactive(q,waveform, tia_gain), filepath)
 
         self.last_plot_path = filepath
@@ -125,29 +125,26 @@ class PotentiostatController:
         params = {'busy_dly_ns': 400e6, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
                   'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': time_ns()}
 
-        #current_list = values.tobytes(order='C')
-        #write_list = np.frombuffer(values, np.uint16)
-        #print(f"Write list element count {len(write_list)}.\n")
-        #n_items = len(write_list)
-        
+      
         # Get target value in uint16
-        total_time = 0
+        
         target = np.array([current,], dtype=np.float32).tobytes(order='C')
         target = np.frombuffer(target, np.uint16).tolist()
-
+        self.device.write_data(REG_WRITE_ADDR_PID, [CMD['PID_START']] + target)  # Send data
+        total_time = 0
 
         # Start sending/collecting
         while total_time < time:
             st = time_ns()
             try:
-                try:  # This has been modified since last time, need to be tested properly
+                """try:  # This has been modified since last time, need to be tested properly
                     if (st - params['wr_dly_st']) > params['busy_dly_ns']:
                         self.device.write_data(REG_WRITE_ADDR_PID, [CMD['PID_START']] + target)  # Send data
                         params['wr_err_cnt'] = 0
                         params['wr_tx_reg'] += 1
                 except minimalmodbus.SlaveReportedException:
                     params['wr_dly_st'] = time_ns()
-                    params['wr_err_cnt'] += 1
+                    params['wr_err_cnt'] += 1"""
 
                 # We need read two times for each write time because adc push two values to FIFO
                 for r in range(0, 2):
@@ -176,8 +173,7 @@ class PotentiostatController:
         logger.info(f"\nTotal transmission time {result_tm:3.4} s, data rate {(data_rate / 1000):3.4} KBytes/s.\n")
         logger.debug(f"Failed writing: {params['wr_err_cnt']}")
         logger.debug(f"Failed reading: {params['rd_err_cnt']}")
-        logger.debug(f"Send: {params['wr_tx_reg']}, Read: {params['rd_tx_reg']}, Diff: {params['rd_tx_reg'] - params['wr_tx_reg']*2}\n"
-                     f"Time/point: {result_tm / params['wr_tx_reg']}\n")
+        logger.debug(f"Send: {params['wr_tx_reg']}, Read: {params['rd_tx_reg']}, Diff: {params['rd_tx_reg'] - params['wr_tx_reg']*2}\n")
 
     def _read_write_data_pid_inactive(self,
                                      data_queue: Queue,
