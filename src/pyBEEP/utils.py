@@ -1,6 +1,8 @@
 import datetime
 import tkinter as tk
 import tkinter.filedialog as fd
+import threading
+import numpy as np
 
 def default_filepath(
         mode: str, 
@@ -40,3 +42,6 @@ def select_folder() -> str:
     folder = fd.askdirectory(parent=root, title='Choose folder to save the data')
     root.destroy()
     return folder
+
+def float_to_uint16_list(value: float) -> list[int]:
+    return list(np.frombuffer(np.array([value], dtype=np.float32).tobytes(), dtype=np.uint16))
