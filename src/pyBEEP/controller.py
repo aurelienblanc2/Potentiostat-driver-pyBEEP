@@ -77,7 +77,8 @@ class PotentiostatController:
 
     def _read_write_data_pid_active(self,
                                    data_queue: Queue,
-                                   currents_list: np.array,
+                                   current: float,
+                                   time: float,
                                    tia_gain: Optional[int] = 0,
                                    reducing_factor: Optional[int] = 5,
                                    n_register: Optional[int] = 120,
@@ -124,10 +125,10 @@ class PotentiostatController:
         params = {'busy_dly_ns': 400e6, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
                   'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': time_ns()}
 
-        current_list = values.tobytes(order='C')
-        write_list = np.frombuffer(values, np.uint16)
-        print(f"Write list element count {len(write_list)}.\n")
-        n_items = len(write_list)
+        #current_list = values.tobytes(order='C')
+        #write_list = np.frombuffer(values, np.uint16)
+        #print(f"Write list element count {len(write_list)}.\n")
+        #n_items = len(write_list)
         
         # Get target value in uint16
         total_time = 0
