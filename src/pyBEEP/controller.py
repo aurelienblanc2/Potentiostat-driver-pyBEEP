@@ -13,7 +13,7 @@ from .logger import DataLogger
 from .utils import default_filepath, convert_uint16_to_float32
 from .waveforms_pot import constant_waveform, linear_sweep, cyclic_voltammetry, potential_steps
 from .waveforms_gal import single_point, linear_galvanostatic_sweep, cyclic_galvanostatic, current_steps
-from .constants import CMD, REG_READ_ADDR, REG_WRITE_ADDR_PID, REG_WRITE_ADDR_POT
+from .constants import CMD, REG_READ_ADDR, REG_WRITE_ADDR_PID, REG_WRITE_ADDR_POT, BUSSY_DLAY_NS
 from .waveform_params import (
     ConstantWaveformParams, PotentialStepsParams, LinearSweepParams, CyclicVoltammetryParams,
     SinglePointParams, CurrentStepsParams, LinearGalvanostaticSweepParams, CyclicGalvanostaticParams
@@ -266,7 +266,7 @@ class PotentiostatController:
         """
         self._setup_measurement(tia_gain=tia_gain, clear_fifo=True)
 
-        params = {'busy_dly_ns': 400e6, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
+        params = {'busy_dly_ns': BUSSY_DLAY_NS, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
                   'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': monotonic_ns()}
 
         global_start_ns = monotonic_ns()
@@ -348,7 +348,7 @@ class PotentiostatController:
              any unread data in the FIFO. Still issues arise if measurements last less than 1s.
         """
 
-        params = {'busy_dly_ns': 400e6, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
+        params = {'busy_dly_ns': BUSSY_DLAY_NS, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
                   'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': monotonic_ns()}
 
         # Generate numpy array to send
