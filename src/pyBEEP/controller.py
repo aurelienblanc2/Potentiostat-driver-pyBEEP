@@ -5,7 +5,7 @@ import threading
 from time import monotonic_ns, time_ns
 import minimalmodbus
 import logging
-from typing import Optional, Callable
+from typing import Callable
 from pydantic import ValidationError
 
 from .device import PotentiostatDevice
@@ -117,16 +117,17 @@ class PotentiostatController:
             self.device.send_command(CMD['FIFO_START'], 1)
         self.device.send_command(CMD['SET_SWITCH'], 1)
 
-    def _run_measurement(self, write_func: Callable[[queue.Queue], None], filepath: str):
+    def _run_measurement(self, write_func: Callable[[queue.Queue], None], filepath: str, reducing_factor: int | None):
         """
-        Run the measurement process, managing writing and saving threads.
+        Run the measurement  process, managing writing and saving threads.
 
         Args:
             write_func (Callable): Function to perform measurement and write data to a queue.
             filepath (str): Path to the file where data will be saved.
+            reducing_factor (int | None): If set, will average every N rows before saving. Defaults to None (no reduction).
         """
         data_queue = queue.Queue()
-        writer = DataLogger(data_queue, filepath)
+        writer = DataLogger(data_queue, filepath, reducing_factor)
 
         write_thread = threading.Thread(target=write_func, args=(data_queue,))
         save_thread = threading.Thread(target=writer.run)
@@ -153,6 +154,7 @@ class PotentiostatController:
         params: dict,
         *,
         tia_gain: int = 0,
+        reducing_factor: int | None = None,
         filepath: str | None = None,
         folder: str | None = None
     ):
@@ -164,6 +166,7 @@ class PotentiostatController:
             mode (str): Measurement mode key (e.g., 'CA', 'CV', etc.).
             params (dict): Dictionary of parameters for the waveform generation.
             tia_gain (int, optional): Transimpedance amplifier gain setting. Defaults to 0.
+            reducing_factor (int | None): If set, will average every N rows before saving. Defaults to None (no reduction).
             filepath (str | None, optional): File path for storing measurement data. If None, a default is generated.
             folder (str | None, optional): Folder for storing the file. Used if filepath is None.
 
@@ -203,14 +206,14 @@ class PotentiostatController:
         with self.device_lock:
             logger.debug(f'Mode: {mode.upper()}\nWavefunction: {mode_config["waveform_func"]}\n'
                          f'Gain: {tia_gain}\nFilepath: {filepath}')
-            self._run_measurement(write_func, filepath)
+            self._run_measurement(write_func, filepath, reducing_factor)
 
         self.last_plot_path = filepath
 
     def _read_write_data_pid_active(
             self,
             data_queue: Queue,
-            current_steps: np.ndarray,
+            waveform: np.ndarray,
             tia_gain: int | None = 0,
             n_register: int | None = 120,
     ) -> None:
@@ -221,7 +224,7 @@ class PotentiostatController:
 
         Args:
             data_queue (Queue): Queue to which acquired data is pushed.
-            current_steps (np.ndarray): Array of [current, duration] pairs to be applied sequentially.
+            waveform (np.ndarray): Array of [current, duration] pairs to be applied sequentially.
             tia_gain (int | None): TIA gain setting for measurement.
             n_register (int | None): Number of data words to read per register operation.
 
@@ -247,7 +250,7 @@ class PotentiostatController:
 
         global_start_ns = monotonic_ns()
 
-        for current, duration in current_steps:
+        for current, duration in waveform:
             target = np.array([current,], dtype=np.float32).tobytes(order='C')
             target = np.frombuffer(target, np.uint16).tolist()
 
@@ -294,13 +297,13 @@ class PotentiostatController:
         logger.debug(f"Failed reading: {params['rd_err_cnt']}")
         logger.debug(f"Send: {params['wr_tx_reg']}, Read: {params['rd_tx_reg']}, Diff: {params['rd_tx_reg'] - params['wr_tx_reg']*2}\n")
 
-    def _read_write_data_pid_inactive(self,
-                                     data_queue: Queue,
-                                     potentials_list: np.ndarray,
-                                     tia_gain: Optional[int] = 0,
-                                     reducing_factor: Optional[int] = None,
-                                     n_register: int = 120,
-                                     ) -> None:
+    def _read_write_data_pid_inactive(
+            self,
+            data_queue: Queue,
+            waveform: np.ndarray,
+            tia_gain: int | None = 0,
+            n_register: int = 120,
+    ) -> None:
         """
         Perform a measurement using standard voltage-controlled mode. The function handles writing 
         commands of the commands to the potentiostat, given the current steps given, and reading of
@@ -308,16 +311,14 @@ class PotentiostatController:
 
          Args:
             data_queue (Queue): Queue to which acquired data is pushed.
-            potentials_list (np.ndarray): Array of potential values to be applied over time.
+            waveform (np.ndarray): Array of potential values to be applied over time.
             tia_gain (int | None): TIA gain setting for measurement.
-            reducing_factor (int | None): Optional factor to downsample data before pushing to queue.
             n_register (int): Number of data words to read per register operation.
 
         Raises:
             minimalmodbus.SlaveReportedException: If serial communication with the potentiostat fails repeatedly.
 
         Behaviour:
-           - The current input is converted from np.float32 to uint16
            - The Transimpedance amplifier gain (TIA_GAIN) is initialized to the specified resistance and the FIFO
              is cleared and switch on.
            - The writing and reading of data is performed in a loop until all the data list created is sent.
@@ -334,16 +335,16 @@ class PotentiostatController:
              is higher than needed (lower resistance), a higher noise level will be assumed unnecessarily. But if the
              gain is set too low (higher resistance), the desired potential might not be reached.
            - Unexpected behaviour is sometimes observed in first iterations of the while loop: number of reading 
-             operations is sometimes lower than writing operations. Reading seems to fail for arround 0-5 times during 
-             first 0.1s. For that reason, delays to both operations were removed, trying constantly to read and 
-             write data. This improves the situation and solve it mostly for all 
+             operations is sometimes lower than writing operations. This was solved by (1) eliminating delays on
+             reading and writing attempts, and (2) Adding 3 extra attempt after writing finishes to try to not leave
+             any unread data in the FIFO. Still issues arise if measurements last less than 1s.
         """
 
         params = {'busy_dly_ns': 400e6, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
                   'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': time_ns()}
 
         # Generate numpy array to send
-        y_bytes = potentials_list.tobytes(order='C')
+        y_bytes = waveform.tobytes(order='C')
         write_list = np.frombuffer(y_bytes, np.uint16)
         logger.debug(f"Write list element count {len(write_list)}.")
         n_items = len(write_list)
