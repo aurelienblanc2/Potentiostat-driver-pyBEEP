@@ -2,7 +2,7 @@ from queue import Queue
 import numpy as np
 import queue
 import threading
-from time import monotonic_ns, time_ns
+from time import monotonic_ns
 import minimalmodbus
 import logging
 from typing import Callable
@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from .device import PotentiostatDevice
 from .logger import DataLogger
-from .utils import default_filepath
+from .utils import default_filepath, convert_uint16_to_float32
 from .waveforms_pot import constant_waveform, linear_sweep, cyclic_voltammetry, potential_steps
 from .waveforms_gal import single_point, linear_galvanostatic_sweep, cyclic_galvanostatic, current_steps
 from .constants import CMD, REG_READ_ADDR, REG_WRITE_ADDR_PID, REG_WRITE_ADDR_POT
@@ -210,6 +210,27 @@ class PotentiostatController:
 
         self.last_plot_path = filepath
 
+    def _read_operation(self,
+            st: int,
+            params: dict,
+            n_register: int,
+            ) -> list | None:
+        try:
+            for r in range(0, 2):
+                if (st - params['rd_dly_st']) > params['busy_dly_ns']:
+                    rd_data = self.device.read_data(REG_READ_ADDR,
+                                                    n_register)  # Collect data
+                    return rd_data
+                else:
+                    break
+        except minimalmodbus.SlaveReportedException:
+            params['rd_dly_st'] = monotonic_ns()
+            params['rd_err_cnt'] += 1
+            if params['rd_err_cnt'] > 16:
+                logger.error('Reading errors exceeded the limit, potentiostat not responding.')
+                raise
+        return None
+
     def _read_write_data_pid_active(
             self,
             data_queue: Queue,
@@ -263,29 +284,16 @@ class PotentiostatController:
             # Start collecting
             while monotonic_ns() < end_ns:
                 st = monotonic_ns()
-                try:
-                    # We need read two times for each write time because adc push two values to FIFO
-                    for r in range(0, 2):
-                        if (st - params['rd_dly_st']) > params['busy_dly_ns']:
-                            rd_data = self.device.read_data(REG_READ_ADDR,
-                                                                 n_register)  # Collect data
-                            # Data conversion from uint16 to np.float32
-                            adc_words = np.array(rd_data).astype(np.uint16)
-                            adc_bytes = adc_words.tobytes()
-                            rd_list = np.frombuffer(adc_bytes, np.float32)
-                            rd_list = np.reshape(rd_list, (-1, 2))
-
-                            data_queue.put(rd_list)
-                            params['rd_tx_reg'] += len(rd_list)
-                            params['rd_err_cnt'] = 0
-                        else:
-                            break
-                except minimalmodbus.SlaveReportedException:
-                    params['rd_dly_st'] = monotonic_ns()
-                    params['rd_err_cnt'] += 1
-                    if params['rd_err_cnt'] > 16:
-                        logger.error('Reading errors exceeded the limit, potentiostat not responding.')
-                        raise
+                # We need read two times for each write time because adc push two values to FIFO
+                for _ in range(0, 2):
+                    rd_data = self._read_operation(st, params, n_register)
+                    if rd_data:
+                        rd_list = convert_uint16_to_float32(rd_data)
+                        data_queue.put(rd_list)
+                        params['rd_tx_reg'] += len(rd_list)
+                        params['rd_err_cnt'] = 0
+                    else:
+                        break
 
         self._teardown_measurement()
 
@@ -341,7 +349,7 @@ class PotentiostatController:
         """
 
         params = {'busy_dly_ns': 400e6, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
-                  'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': time_ns()}
+                  'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': monotonic_ns()}
 
         # Generate numpy array to send
         y_bytes = waveform.tobytes(order='C')
@@ -353,58 +361,41 @@ class PotentiostatController:
 
         # Send and collect data
         i = 0
-        params['transmission_st'] = time_ns()
+        params['transmission_st'] = monotonic_ns()
 
         post_read_attempts = 0
         while post_read_attempts < 3:
-            st = time_ns()
+            st = monotonic_ns()
             if i < n_items: #Writing
                 data = write_list[i:i + n_register].tolist()
                 try:
                     if (st - params['wr_dly_st'] * 0) > params['busy_dly_ns']:
                         self.device.write_data(REG_WRITE_ADDR_POT, data)
                         params['wr_err_cnt'] = 0
-                        i += n_register
-                        params['rx_tx_reg'] += n_register
                         params['wr_tx_reg'] += n_register
+                        i += n_register
                 except minimalmodbus.SlaveReportedException:
-                    params['wr_dly_st'] = time_ns()
+                    params['wr_dly_st'] = monotonic_ns()
                     params['wr_err_cnt'] += 1
                     if params['wr_err_cnt'] > 10:
                         logger.error('Writing errors exceeded the limit, potentiostat not responding.')
                         raise
-            try:
-                # We need read two times for each write time becase adc push two values to FIFO
-                for r in range(0, 2):
-                    if (st - params['rd_dly_st'] * 0) > params['busy_dly_ns']:
-                        rd_data = self.device.read_data(REG_READ_ADDR,
-                                                             n_register)  # Registernumber, number of decimals
-
-                        # Data conversion from uint16 to np.float32
-                        adc_words = np.array(rd_data).astype(np.uint16)
-                        adc_bytes = adc_words.tobytes()
-                        rd_list = np.frombuffer(adc_bytes, np.float32)
-                        rd_list = np.reshape(rd_list, (-1, 2))
-
-                        data_queue.put(rd_list)
-                        params['rx_tx_reg'] += n_register
-                        params['rd_tx_reg'] += n_register
-                        params['rd_err_cnt'] = 0
-                    else:
-                        break
-            except minimalmodbus.SlaveReportedException:
-                params['rd_dly_st'] = time_ns()
-                params['rd_err_cnt'] += 1
-                if params['rd_err_cnt'] > 16:
-                    logger.error('Reading errors exceeded the limit, potentiostat not responding.')
-                    raise
-            finally:
-                if i >= n_items:
-                    post_read_attempts += 1
+            # We need read two times for each write time because adc push two values to FIFO
+            for _ in range(0, 2):
+                rd_data = self._read_operation(st, params, n_register)
+                if rd_data:
+                    rd_list = convert_uint16_to_float32(rd_data)
+                    data_queue.put(rd_list)
+                    params['rd_tx_reg'] += len(rd_list)
+                    params['rd_err_cnt'] = 0
+                else:
+                    break
+            if i >= n_items:
+                post_read_attempts += 1
 
         self._teardown_measurement()
 
-        result_tm = (time_ns() - params['transmission_st']) / 1e9
+        result_tm = (monotonic_ns() - params['transmission_st']) / 1e9
         data_rate = (2 * params['rx_tx_reg']) / result_tm
         logger.info(f"\nTotal transmission time {result_tm:3.4} s, data rate {(data_rate / 1000):3.4} KBytes/s.\n")
         logger.debug(f"Failed writing: {params['wr_err_cnt']}")

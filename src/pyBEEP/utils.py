@@ -13,8 +13,6 @@ def default_filepath(
 
     Args:
         mode (str): The measurement mode.
-        value (float): The value for the mode (e.g., voltage or current).
-        time (float): The duration of the measurement.
         tia_gain (int): The transimpedance amplifier gain setting.
         folder (str | None): Optional. Folder to use; if None, a dialog will prompt the user.
 
@@ -28,12 +26,12 @@ def default_filepath(
 
 def select_folder() -> str:
     """
-        Opens a dialog for the user to select a folder for saving data.
-        Returns the selected folder path as a string.
+    Opens a dialog for the user to select a folder for saving data.
+    Returns the selected folder path as a string.
 
-        Returns:
-            str: The selected folder path.
-        """
+    Returns:
+        str: The selected folder path.
+    """
     root = tk.Tk()
     root.withdraw()  # Hide the main window
     folder = fd.askdirectory(parent=root, title='Choose folder to save the data')
@@ -41,4 +39,10 @@ def select_folder() -> str:
     return folder
 
 def float_to_uint16_list(value: float) -> list[int]:
-    return list(np.frombuffer(np.array([value], dtype=np.float32).tobytes(), dtype=np.uint16))
+    return list(np.frombuffer(np.array([value], dtype=np.float32).tobytes(order='C'), dtype=np.uint16))
+
+def convert_uint16_to_float32(rd_data):
+    adc_words = np.array(rd_data).astype(np.uint16)
+    adc_bytes = adc_words.tobytes()
+    rd_list = np.frombuffer(adc_bytes, np.float32)
+    return np.reshape(rd_list, (-1, 2))
