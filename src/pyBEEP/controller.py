@@ -2,16 +2,17 @@ from queue import Queue
 import numpy as np
 import queue
 import threading
-from time import time_ns
+from time import monotonic_ns, time_ns
 import minimalmodbus
 import logging
 from typing import Optional, Callable
 
 from .device import PotentiostatDevice
 from .logger import DataLogger
-from .utils import default_filepath, float_to_uint16_list
-from .waveforms import constant_waveform, linear_sweep, cyclic_voltammetry
-from .constants import CMD, GAIN, REG_READ_ADDR, REG_WRITE_ADDR_PID, REG_WRITE_ADDR_POT, POINT_INTERVAL_GAL
+from .utils import default_filepath
+from .waveforms_pot import constant_waveform, linear_sweep, cyclic_voltammetry, potential_steps
+from .waveforms_gal import single_point, linear_galvanostatic_sweep, cyclic_galvanostatic, current_steps
+from .constants import CMD, REG_READ_ADDR, REG_WRITE_ADDR_PID, REG_WRITE_ADDR_POT
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -25,11 +26,27 @@ class PotentiostatController:
         self.last_plot_path = None
         self.device_lock = threading.Lock()
         self._measurement_modes = {
-            "CP": {"type": "pid_active"},
-            "CA": {"type": "pid_inactive", "waveform_func": constant_waveform},
-            "LSV": {"type": "pid_inactive", "waveform_func": linear_sweep},
-            "CV": {"type": "pid_inactive", "waveform_func": cyclic_voltammetry}
+            # Potentiostatic (PID inactive)
+            "CA": {"pid": False, "waveform_func": constant_waveform},  # Chronoamperometry
+            "LSV": {"pid": False, "waveform_func": linear_sweep},  # Linear Sweep Voltammetry
+            "CV": {"pid": False, "waveform_func": cyclic_voltammetry},  # Cyclic Voltammetry
+            "PSTEP": {"pid": False, "waveform_func": potential_steps},  # Potential Step
+
+            # Galvanostatic (PID active)
+            "CP": {"pid": True, "waveform_func": single_point},  # Chronopotentiometry
+            "GS": {"pid": True, "waveform_func": linear_galvanostatic_sweep},  # Galvanostatic Sweep
+            "GCV": {"pid": True, "waveform_func": cyclic_galvanostatic},  # Galvanostatic CV
+            "STEPSEQ": {"pid": True, "waveform_func": current_steps},  # Custom Step Sequence
         }
+
+    def get_available_modes(self):
+        return list(self._measurement_modes.keys())
+
+    def get_waveform_func(self, mode: str) -> Optional[Callable]:
+        return self._measurement_modes.get(mode.upper(), {}).get("waveform_func")
+
+    def is_pid_active(self, mode: str) -> bool:
+        return self._measurement_modes.get(mode.upper(), {}).get("pid")
 
     def _setup_measurement(self, tia_gain: int, clear_fifo: bool = False, fifo_start: bool = False):
         self.device.send_command(CMD['SET_TIA_GAIN'], tia_gain)
@@ -56,31 +73,32 @@ class PotentiostatController:
             save_thread.join()
 
     def _teardown_measurement(self):
-        with self.device_lock:
-            self.device.send_command(CMD["SET_SWITCH"], 0)
-            self.device.send_command(CMD["TEST_STOP"], 1)
+        self.device.send_command(CMD["SET_SWITCH"], 0)
+        self.device.send_command(CMD["TEST_STOP"], 1)
 
-    def apply_measurement(self, mode: str, *args, tia_gain, filepath = None, **kwargs):
-        mode_config = self._measurement_modes[mode.upper()]
+    def apply_measurement(self, mode: str, *args, *, tia_gain = 0,filepath = None, **kwargs):
+        mode_config = self._measurement_modes.get(mode.upper())
+        if not mode_config:
+            raise ValueError(f"Unknown measurement mode: {mode}")
+
         filepath = filepath or default_filepath(mode, *args, tia_gain=tia_gain)
+        waveform = mode_config["waveform_func"](*args, **kwargs)
 
-        if mode_config['type'] == 'pid_active':
-            current, duration = args
-            self._run_measurement(
-                lambda q: self._read_write_data_pid_active(q, current, duration, tia_gain),
-                filepath)
-        elif mode_config["type"] == "pid_inactive":
-            waveform = mode_config["waveform_func"](mode_config["type"], *args, **kwargs)
-            self._run_measurement(lambda q: self._read_write_data_pid_inactive(q,waveform, tia_gain), filepath)
+        if mode_config['pid']:
+            write_func = lambda q: self._read_write_data_pid_active(q, waveform, tia_gain)
+        else:
+            write_func = lambda q: self._read_write_data_pid_inactive(q,waveform, tia_gain)
+        with self.device_lock:
+            logger.debug(f'Mode: {mode.upper()}\nWavefunction: {mode_config["waveform_func"]}\n'
+                         f'Gain: {tia_gain}\nFilepath: {filepath}')
+            self._run_measurement(write_func, filepath)
 
         self.last_plot_path = filepath
 
     def _read_write_data_pid_active(self,
                                    data_queue: Queue,
-                                   current: float,
-                                   time: float,
+                                   current_steps: np.ndarray,
                                    tia_gain: Optional[int] = 0,
-                                   reducing_factor: Optional[int] = 5,
                                    n_register: Optional[int] = 120,
                                    ) -> None:
         """
@@ -123,52 +141,51 @@ class PotentiostatController:
         self._setup_measurement(tia_gain=tia_gain, clear_fifo=True)
 
         params = {'busy_dly_ns': 400e6, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
-                  'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': time_ns()}
+                  'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': monotonic_ns()}
 
-      
-        # Get target value in uint16
-        
-        target = np.array([current,], dtype=np.float32).tobytes(order='C')
-        target = np.frombuffer(target, np.uint16).tolist()
-        self.device.write_data(REG_WRITE_ADDR_PID, [CMD['PID_START']] + target)  # Send data
-        total_time = 0
+        global_start_ns = monotonic_ns()
 
-        # Start sending/collecting
-        while total_time < time:
-            st = time_ns()
-            try:
-                """try:  # This has been modified since last time, need to be tested properly
-                    if (st - params['wr_dly_st']) > params['busy_dly_ns']:
-                        self.device.write_data(REG_WRITE_ADDR_PID, [CMD['PID_START']] + target)  # Send data
-                        params['wr_err_cnt'] = 0
-                        params['wr_tx_reg'] += 1
+        for current, duration in current_steps:
+            target = np.array([current,], dtype=np.float32).tobytes(order='C')
+            target = np.frombuffer(target, np.uint16).tolist()
+
+            #Activate PID and set target
+            self.device.write_data(REG_WRITE_ADDR_PID, [CMD['PID_START']] + target)  # Send data
+
+            start_ns = monotonic_ns()
+            end_ns = start_ns + int(duration * 1e9)
+
+            # Start collecting
+            while monotonic_ns() < end_ns:
+                st = monotonic_ns()
+                try:
+                    # We need read two times for each write time because adc push two values to FIFO
+                    for r in range(0, 2):
+                        if (st - params['rd_dly_st']) > params['busy_dly_ns']:
+                            rd_data = self.device.read_data(REG_READ_ADDR,
+                                                                 n_register)  # Collect data
+                            # Data conversion from uint16 to np.float32
+                            adc_words = np.array(rd_data).astype(np.uint16)
+                            adc_bytes = adc_words.tobytes()
+                            rd_list = np.frombuffer(adc_bytes, np.float32)
+                            rd_list = np.reshape(rd_list, (-1, 2))
+
+                            data_queue.put(rd_list)
+                            params['rd_tx_reg'] += len(rd_list)
+                            params['rd_err_cnt'] = 0
+                        else:
+                            break
                 except minimalmodbus.SlaveReportedException:
-                    params['wr_dly_st'] = time_ns()
-                    params['wr_err_cnt'] += 1"""
-
-                # We need read two times for each write time because adc push two values to FIFO
-                for r in range(0, 2):
-                    if (st - params['rd_dly_st']) > params['busy_dly_ns']:
-                        rd_data = self.device.read_data(REG_READ_ADDR,
-                                                             n_register)  # Collect data
-                        # Data conversion from uint16 to np.float32
-                        adc_words = np.array(rd_data).astype(np.uint16)
-                        adc_bytes = adc_words.tobytes()
-                        rd_list = np.frombuffer(adc_bytes, np.float32)
-                        rd_list = np.reshape(rd_list, (-1, 2))
-
-                        data_queue.put(rd_list)
-                        params['rd_tx_reg'] += len(rd_list)
-                    else:
-                        break
-            except minimalmodbus.SlaveReportedException:
-                params['rd_dly_st'] = time_ns()
-                params['rd_err_cnt'] += 1
-            total_time += (time_ns() - st) / 1000000000  # Time passed
+                    params['rd_dly_st'] = monotonic_ns()
+                    params['rd_err_cnt'] += 1
+                    if params['rd_err_cnt'] > 16:
+                        logger.error('Reading errors exceeded the limit, potentiostat not responding.')
+                        raise
 
         self._teardown_measurement()
 
-        result_tm = (time_ns() - params['transmission_st']) / 1e9
+        total_time_ns = monotonic_ns() - global_start_ns
+        result_tm = total_time_ns / 1e9
         data_rate = (2 * params['rx_tx_reg']) / result_tm
         logger.info(f"\nTotal transmission time {result_tm:3.4} s, data rate {(data_rate / 1000):3.4} KBytes/s.\n")
         logger.debug(f"Failed writing: {params['wr_err_cnt']}")
@@ -177,7 +194,7 @@ class PotentiostatController:
 
     def _read_write_data_pid_inactive(self,
                                      data_queue: Queue,
-                                     potentials_list: np.array,
+                                     potentials_list: np.ndarray,
                                      tia_gain: Optional[int] = 0,
                                      reducing_factor: Optional[int] = None,
                                      n_register: int = 120,
@@ -226,7 +243,7 @@ class PotentiostatController:
         # Generate numpy array to send
         y_bytes = potentials_list.tobytes(order='C')
         write_list = np.frombuffer(y_bytes, np.uint16)
-        print(f"Write list element count {len(write_list)}.\n")
+        logger.debug(f"Write list element count {len(write_list)}.")
         n_items = len(write_list)
 
         self._setup_measurement(tia_gain=tia_gain, fifo_start=True, clear_fifo=True)
@@ -250,6 +267,9 @@ class PotentiostatController:
                 except minimalmodbus.SlaveReportedException:
                     params['wr_dly_st'] = time_ns()
                     params['wr_err_cnt'] += 1
+                    if params['wr_err_cnt'] > 10:
+                        logger.error('Writing errors exceeded the limit, potentiostat not responding.')
+                        raise
             try:
                 # We need read two times for each write time becase adc push two values to FIFO
                 for r in range(0, 2):
@@ -272,8 +292,11 @@ class PotentiostatController:
             except minimalmodbus.SlaveReportedException:
                 params['rd_dly_st'] = time_ns()
                 params['rd_err_cnt'] += 1
+                if params['rd_err_cnt'] > 16:
+                    logger.error('Reading errors exceeded the limit, potentiostat not responding.')
+                    raise
             finally:
-                if i > n_items:
+                if i >= n_items:
                     post_read_attempts += 1
 
         self._teardown_measurement()
