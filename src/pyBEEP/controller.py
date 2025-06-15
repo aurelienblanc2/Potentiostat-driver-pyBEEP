@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from .device import PotentiostatDevice
 from .logger import DataLogger
-from .utils import default_filepath, convert_uint16_to_float32
+from .utils import default_filename, convert_uint16_to_float32, select_folder
 from .waveforms_pot import constant_waveform, linear_sweep, cyclic_voltammetry, potential_steps
 from .waveforms_gal import single_point, linear_galvanostatic_sweep, cyclic_galvanostatic, current_steps
 from .constants import CMD, REG_READ_ADDR, REG_WRITE_ADDR_PID, REG_WRITE_ADDR_POT, BUSSY_DLAY_NS
@@ -26,14 +26,16 @@ console_handler.setLevel(logging.DEBUG)
 logger.addHandler(console_handler)
 
 class PotentiostatController:
-    def __init__(self, device: PotentiostatDevice):
+    def __init__(self, device: PotentiostatDevice, default_folder: str | None = None):
         """
        Initialize the PotentiostatController.
 
-       Args:
+       Args:    
            device (PotentiostatDevice): The hardware interface for the potentiostat.
+           default_folder (str | None): Default folder for saving measurement files. If None, no default is set.
        """
         self.device = device
+        self.default_folder = default_folder
         self.last_plot_path = None
         self.device_lock = threading.Lock()
         self._measurement_modes = {
@@ -48,7 +50,31 @@ class PotentiostatController:
             "GCV": {"pid": True, "waveform_func": cyclic_galvanostatic, "param_class": CyclicGalvanostaticParams},
             "STEPSEQ": {"pid": True, "waveform_func": current_steps, "param_class": CurrentStepsParams},
         }
+        
+    def set_default_folder(self, folder: str | None = None):
+        """
+        Set the default folder for saving measurement files.
 
+        Args:
+            folder (str | None): The folder path to set as default. If None, no default is set.
+        """
+        if folder:
+            self.default_folder = folder
+        else:
+            self.default_folder = select_folder()
+        logger.info(f"Default folder set to: {self.default_folder}")
+
+    def get_default_folder(self) -> str:
+        """
+        Get the default folder used for saving measurement files.
+
+        Returns:
+            str: The currently set default folder path. If not set, prompts the user to select one.
+        """
+        if not self.default_folder:
+            self.set_default_folder()
+        return self.default_folder
+            
     def get_available_modes(self) -> list[str]:
         """
         Get a list of available measurement modes supported by this controller.
@@ -155,7 +181,7 @@ class PotentiostatController:
         *,
         tia_gain: int = 0,
         reducing_factor: int | None = None,
-        filepath: str | None = None,
+        filename: str | None = None,
         folder: str | None = None
     ):
         """
@@ -167,7 +193,7 @@ class PotentiostatController:
             params (dict): Dictionary of parameters for the waveform generation.
             tia_gain (int, optional): Transimpedance amplifier gain setting. Defaults to 0.
             reducing_factor (int | None): If set, will average every N rows before saving. Defaults to None (no reduction).
-            filepath (str | None, optional): File path for storing measurement data. If None, a default is generated.
+            filename (str | None, optional): File path for storing measurement data. If None, a default is generated.
             folder (str | None, optional): Folder for storing the file. Used if filepath is None.
 
         Raises:
@@ -196,8 +222,10 @@ class PotentiostatController:
 
         # Use .model_dump() for Pydantic v2 to unpack validated params
         waveform = mode_config["waveform_func"](**param_obj.model_dump())
-
-        filepath = filepath or default_filepath(mode, tia_gain=tia_gain, folder=folder)
+        
+        filename = filename or default_filename(mode=mode, tia_gain=tia_gain)
+        folder = folder or self.get_default_folder()
+        filepath = f"{folder}/{filename}"
 
         if mode_config['pid']:
             write_func = lambda q: self._read_write_data_pid_active(q, waveform, tia_gain)

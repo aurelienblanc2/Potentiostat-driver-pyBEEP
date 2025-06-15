@@ -4,7 +4,7 @@ from typing import List
 # --- Potentiostatic waveform parameters ---
 
 class ConstantWaveformParams(BaseModel):
-    value: float
+    potential: float
     duration: float
 
 class PotentialStepsParams(BaseModel):

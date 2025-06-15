@@ -3,26 +3,22 @@ import tkinter as tk
 import tkinter.filedialog as fd
 import numpy as np
 
-def default_filepath(
+def default_filename(
         mode: str, 
         tia_gain: int,
-        folder: str | None = None,
 ) -> str:
     """
-    Generates a default file path for saving data, with a timestamp and measurement details.
+    Generates a default file name for saving data, with a timestamp and measurement details.
 
     Args:
         mode (str): The measurement mode.
         tia_gain (int): The transimpedance amplifier gain setting.
-        folder (str | None): Optional. Folder to use; if None, a dialog will prompt the user.
 
     Returns:
-        str: The full path for the data file.
+        str: The filename for the data file.
     """
     stamp = datetime.datetime.now().strftime("%Y%m%d_%Hh%Mm%Ss")
-    if not folder:
-        folder = select_folder()
-    return f"{folder}/{stamp}_{mode}_tia{tia_gain}.csv"
+    return f"{stamp}_{mode}_tia{tia_gain}.csv"
 
 def select_folder() -> str:
     """
