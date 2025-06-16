@@ -244,7 +244,7 @@ class PotentiostatController:
                 rd_data = self.device.read_data(REG_READ_ADDR,
                                                 n_register)  # Collect data
                 return rd_data
-        except minimalmodbus.SlaveReportedException:
+        except minimalmodbus.SlaveReportedException or minimalmodbus.SlaveDeviceBusyError:
             logger.debug('Reading error, retrying...')
             params['rd_dly_st'] = monotonic_ns()
             params['rd_err_cnt'] += 1
@@ -396,7 +396,7 @@ class PotentiostatController:
                         params['wr_err_cnt'] = 0
                         params['wr_tx_reg'] += n_register
                         i += n_register
-                except minimalmodbus.SlaveReportedException:
+                except minimalmodbus.SlaveReportedException or minimalmodbus.InvalidResponseError:
                     params['wr_dly_st'] = monotonic_ns()
                     params['wr_err_cnt'] += 1
                     if params['wr_err_cnt'] > 10:

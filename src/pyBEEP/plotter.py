@@ -71,7 +71,7 @@ def plot_iv_curve(
     plt.close(fig)
 
 def plot_cv_cycles(
-    filepath: str,
+    filepaths: str | list[str],
     figpath: str | None = None,
     show: bool = False,
     scan_points: int | None = None,
@@ -79,30 +79,42 @@ def plot_cv_cycles(
 ):
     """
     Plot CV data with each cycle shown in a different color.
-    Assumes the data is ordered as [current, potential] rows, scans concatenated.
+    Accepts list of filepaths; cycles in each file are plotted as separate groups.
+    Assumes the data in each file is ordered as [current, potential] rows, scans concatenated.
     Provide scan_points (points per scan, optional) and cycles (optional) if known.
     """
-    data = pd.read_csv(filepath, header=None)
-    current = data[0].values
-    potential = data[1].values
-
-    # If cycles or scan_points not given, try to infer:
-    if scan_points is None and cycles is not None:
-        scan_points = len(data) // cycles
-    elif cycles is None and scan_points is not None:
-        cycles = len(data) // scan_points
-    elif cycles is None and scan_points is None:
-        # Try to guess: look for periodicity (fall back to 1)
-        scan_points = len(data)
-        cycles = 1
+    if isinstance(filepaths, str):
+        filepaths = [filepaths]
 
     fig, ax = plt.subplots(figsize=(8, 6))
     fig.suptitle('Cyclic Voltammetry (CV) - Individual Cycles')
 
-    for n in range(cycles):
-        i0 = n * scan_points
-        i1 = (n + 1) * scan_points
-        ax.plot(potential[i0:i1], current[i0:i1], label=f"Cycle {n+1}")
+    color_map = plt.get_cmap('tab10')
+    color_idx = 0
+
+    for fp in filepaths:
+        data = pd.read_csv(fp, header=None)
+        current = data[0].values
+        potential = data[1].values
+
+        # If cycles or scan_points not given, try to infer:
+        local_scan_points = scan_points
+        local_cycles = cycles
+        if local_scan_points is None and local_cycles is not None:
+            local_scan_points = len(data) // local_cycles
+        elif local_cycles is None and local_scan_points is not None:
+            local_cycles = len(data) // local_scan_points
+        elif local_cycles is None and local_scan_points is None:
+            # Try to guess: look for periodicity (fall back to 1)
+            local_scan_points = len(data)
+            local_cycles = 1
+
+        for n in range(local_cycles):
+            i0 = n * local_scan_points
+            i1 = (n + 1) * local_scan_points
+            label = f"{os.path.basename(fp)} - Cycle {n+1}" if len(filepaths) > 1 or local_cycles > 1 else os.path.basename(fp)
+            ax.plot(potential[i0:i1], current[i0:i1], label=label, color=color_map(color_idx % 10))
+            color_idx += 1
 
     ax.set_xlabel('Potential (V)')
     ax.set_ylabel('Current (A)')
