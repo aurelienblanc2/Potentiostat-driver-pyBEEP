@@ -33,7 +33,7 @@ def plot_time_series(
         axs[0].legend()
         axs[1].legend()
 
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
     if show:
         plt.show()
     if figpath:
@@ -63,7 +63,7 @@ def plot_iv_curve(
     ax.set_ylabel('Current (A)')
     if len(filepaths) > 1:
         ax.legend()
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
     if show:
         plt.show()
     if figpath:
@@ -119,7 +119,7 @@ def plot_cv_cycles(
     ax.set_xlabel('Potential (V)')
     ax.set_ylabel('Current (A)')
     ax.legend()
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
     if show:
         plt.show()
     if figpath:

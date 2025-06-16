@@ -7,7 +7,7 @@ def constant_waveform(potential: float, duration: float) -> np.ndarray:
     Generates a constant waveform for a specified duration.
 
     Args:
-        value (float): The constant value (e.g., voltage or current) to apply.
+        potential (float): The constant value (e.g., voltage or current) to apply.
         duration (float): Total time (in seconds) for which the value is held.
 
     Returns:

@@ -65,27 +65,29 @@ controller = PotentiostatController(device=device)
 # Run a cyclic voltametry experiment
 controller.apply_measurement(
      mode= "CV",
-     start= -0.25,
-     vertex= 1.8,
-     end= 0,
-     scan_rate= 0.1,
-     cycles= 3,
+     params= {
+         'start': -0.25,
+         'vertex': 1.8,
+         'end': 0,
+         'scan_rate': 0.1,
+         'cycles': 3
+     },
      tia_gain=0,
      filename= "result_ca.csv",
      folder= 'C:/experiments',
-     plot = True
 )
         
 
 # Run a stepped chronopotentiometry experiment
 controller.apply_measurement(
      mode = "STEPSEQ",
-     currents = [0.002, 0.01, 0.05],
-     duration = 5,
+     params= {
+       'currents': [0.002, 0.01, 0.05],
+       'duration': 5
+     },
      tia_gain=0,
      filename= "result_ca.csv",
      folder= 'C:/experiments',
-     plot = True
 )
 ```
 
@@ -112,18 +114,39 @@ pip install -r requirements.txt
 ## File Structure
 
 ```
-src/
-  pyBEEP/
-    controller.py         # High-level control and experiment logic
-    device.py             # Low-level Modbus device communication
-    logger.py             # Threaded data logging to file
-    waveform_params.py    # Parameter validation for experiments
-    waveforms_gal.py      # Potential-controlled waveform definitions
-    waveforms_pot.py      # Current-controlled waveform definitions
-    plotter.py            # Data plotting utilities
-    utils.py              # Utility functions (e.g. file/folder selection)
-    constants.py          # Hardware and experiment constants
+pyBEEP/
+├── project.toml                 # Project configuration (if used)
+├── pyBEEP.toml                  # Package configuration (if used)
+├── README.md                    # This file
+├── requirements.txt             # Python dependencies
+├── ruff.py                      # Linter/formatter config (if used)
+├── setup.py                     # Install script
+│
+├── examples/                    # Example scripts for running experiments
+│   ├── example_CA.py
+│   ├── example_CA_TIA_test.py
+│   ├── example_CV.py
+│   ├── example_CV_TIA_test.py
+│   ├── example_LSV.py
+│   ├── example_PSTEP.py
+│   └── methods_examples.py
+│
+└── src/
+    └── pyBEEP/
+        ├── constants.py         # Hardware and experiment constants
+        ├── controller.py        # High-level control and experiment logic
+        ├── device.py            # Low-level Modbus device communication
+        ├── logger.py            # Threaded data logging to file
+        ├── plotter.py           # Data plotting utilities
+        ├── utils.py             # Utility functions (e.g. file/folder selection)
+        ├── waveform_params.py   # Parameter validation for experiments
+        ├── waveforms_gal.py     # Potential-controlled waveform definitions
+        ├── waveforms_pot.py     # Current-controlled waveform definitions
+        └── __init__.py
 ```
+
+- **examples/** contains working scripts that demonstrate how to use pyBEEP for different types of experiments.  
+- **src/pyBEEP/** is the main package source code.
 
 ---
 
