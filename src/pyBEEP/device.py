@@ -1,6 +1,8 @@
 import minimalmodbus
 from typing import List
+import logging
 
+logger = logging.getLogger(__name__)
 
 class PotentiostatDevice:
     def __init__(self, port: str, address: int, baudrate: int = 1500000, timeout: float = 0.03):
@@ -28,7 +30,7 @@ class PotentiostatDevice:
         try:
             self.device.write_registers(0x4F00, [command, parameter])
         except minimalmodbus.SlaveReportedException as e:
-            print(f"[Error] Command {command:#X}: {e}")
+            logger.debug(f"[Error] Command {command:#X}: {e}")
             exit()
 
     def write_data(self, address: int, data: List[int]) -> None:

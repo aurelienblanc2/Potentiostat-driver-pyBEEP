@@ -20,10 +20,6 @@ from .waveform_params import (
 )
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-logger.addHandler(console_handler)
 
 class PotentiostatController:
     def __init__(self, device: PotentiostatDevice, default_folder: str | None = None):
@@ -213,7 +209,7 @@ class PotentiostatController:
             # Validate and parse user input with Pydantic
             param_obj = param_class(**params)
         except ValidationError as e:
-            required_fields = [f for f in param_class.model_fields()]
+            required_fields = [f for f in param_class.model_fields.keys()]
             raise ValueError(
                 f"Parameter error for mode '{mode}':\n"
                 f"{e}\n"
@@ -244,13 +240,11 @@ class PotentiostatController:
             n_register: int,
             ) -> list | None:
         try:
-            for r in range(0, 2):
-                if (st - params['rd_dly_st']) > params['busy_dly_ns']:
-                    rd_data = self.device.read_data(REG_READ_ADDR,
-                                                    n_register)  # Collect data
-                    return rd_data
-                else:
-                    break
+            if (st - params['rd_dly_st']) > params['busy_dly_ns']:
+                rd_data = self.device.read_data(REG_READ_ADDR,
+                                                n_register)  # Collect data
+                logger.debug(f"Read data: {len(rd_data)}")
+                return rd_data
         except minimalmodbus.SlaveReportedException:
             params['rd_dly_st'] = monotonic_ns()
             params['rd_err_cnt'] += 1
@@ -392,7 +386,7 @@ class PotentiostatController:
         params['transmission_st'] = monotonic_ns()
 
         post_read_attempts = 0
-        while post_read_attempts < 3:
+        while post_read_attempts < 32:
             st = monotonic_ns()
             if i < n_items: #Writing
                 data = write_list[i:i + n_register].tolist()
@@ -416,8 +410,6 @@ class PotentiostatController:
                     data_queue.put(rd_list)
                     params['rd_tx_reg'] += len(rd_list)
                     params['rd_err_cnt'] = 0
-                else:
-                    break
             if i >= n_items:
                 post_read_attempts += 1
 

@@ -2,6 +2,34 @@ import datetime
 import tkinter as tk
 import tkinter.filedialog as fd
 import numpy as np
+import logging
+
+def setup_logging(
+    level=logging.INFO,
+    fmt="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    package="pyBEEP",
+    root_level=None
+):
+    """
+    Configures logging for the specified package logger and optionally the root logger.
+
+    Args:
+        level: Log level for your package logger (default: INFO).
+        fmt: Logging format string.
+        package: Name of your package (default: 'pyBEEP').
+        root_level: If set, also set the root logger to this level (e.g., logging.WARNING).
+    """
+    # Set package logger
+    logger = logging.getLogger(package)
+    logger.setLevel(level)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(fmt))
+        logger.addHandler(handler)
+
+    # Optionally set root logger (discouraged unless debugging all Python logs)
+    if root_level is not None:
+        logging.basicConfig(level=root_level, format=fmt)
 
 def default_filename(
         mode: str, 

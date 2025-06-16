@@ -1,6 +1,8 @@
 import csv
 import numpy as np
+import logging
 
+logger = logging.getLogger(__name__)
 
 class DataLogger:
     """
@@ -35,14 +37,14 @@ class DataLogger:
                 item = self.queue.get()
                 if item is None:
                     break
-                buffer.append(item)
+                buffer.extend(item)
                 if len(buffer) > 20:
-                    buffer = self._save_batch(buffer, writer)
+                    buffer = self._save_batch(writer, buffer)
                     file.flush()
             if buffer:
                 self._save_batch(writer, buffer, flush_all=True)
                 file.flush()
-        print(f"Saved: {self.filepath}")
+        logger.info(f"Saved: {self.filepath}")
 
     def _save_batch(self, writer: csv.writer, buffer: list, flush_all: bool = False) -> list:
         """

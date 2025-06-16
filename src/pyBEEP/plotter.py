@@ -1,99 +1,115 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-import threading
+import numpy as np
 import os
 
-
-def plot_dual_channel(
-        filepaths: str | list[str],
-        figpath: str | None = None,
-        show: bool = False
+def plot_time_series(
+    filepaths: str | list[str],
+    figpath: str | None = None,
+    show: bool = False,
+    dt: float = 1.0  # sample period in seconds; adjust if known, or infer from data if available
 ):
     """
-    Plots potentiostat ADC capture (dual channel) for one or multiple CSV files.
-
-    Each file is expected to have two columns: the first for WEOUT (A), the second for REOUT (V).
-    All files are plotted on the same figure, overlaying traces per channel.
-    The x-axis is the sample index (row number).
-
-    Args:
-        filepaths (Union[str, List[str]]): Single filepath or a list of filepaths to CSV files.
-
-    Example:
-        plot_dual_channel(['file1.csv', 'file2.csv'])
+    Plot current and potential vs time for CA, CP, GS, etc.
     """
     if isinstance(filepaths, str):
         filepaths = [filepaths]
 
-    fig, axs = plt.subplots(2, sharex=True, figsize=(10, 6))
-    fig.suptitle('Potentiostat ADC Capture (Overlayed)')
+    fig, axs = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
+    fig.suptitle('Current & Potential vs Time')
 
     for fp in filepaths:
         data = pd.read_csv(fp, header=None)
+        t = np.arange(len(data)) * dt
         label = os.path.basename(fp)
-        # Plot WEOUT (A)
-        axs[0].plot(data.index, data[0], label=label)
-        # Plot REOUT (V)
-        axs[1].plot(data.index, data[1], label=label)
+        axs[0].plot(t, data[0], label=label)  # Current (A)
+        axs[1].plot(t, data[1], label=label)  # Potential (V)
 
-    axs[0].set_ylabel('WEOUT (A)', color='tab:red')
-    axs[1].set_ylabel('REOUT (V)', color='tab:blue')
-    axs[1].set_xlabel("Sample #")
+    axs[0].set_ylabel('Current (A)', color='tab:red')
+    axs[1].set_ylabel('Potential (V)', color='tab:blue')
+    axs[1].set_xlabel('Time (s)')
 
-    # Add legends if more than one file
     if len(filepaths) > 1:
-        axs[0].legend(loc='best')
-        axs[1].legend(loc='best')
+        axs[0].legend()
+        axs[1].legend()
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    print("Function plot called in thread:", threading.current_thread().name)
     if show:
-        plt.show(block=True)
+        plt.show()
     if figpath:
         fig.savefig(figpath)
     plt.close(fig)
-    
-def plot_j_vs_V(
-        filepaths: str | list[str],
-        figpath: str | None = None,
-        show: bool = False
+
+def plot_iv_curve(
+    filepaths: str | list[str],
+    figpath: str | None = None,
+    show: bool = False
 ):
     """
-    Plots potentiostat ADC capture (dual channel) for one or multiple CSV files.
-
-    Each file is expected to have two columns: the first for WEOUT (A), the second for REOUT (V).
-    All files are plotted on the same figure, overlaying traces per channel.
-    The x-axis is the sample index (row number).
-
-    Args:
-        filepaths (Union[str, List[str]]): Single filepath or a list of filepaths to CSV files.
-
-    Example:
-        plot_dual_channel(['file1.csv', 'file2.csv'])
+    Plot current vs potential for LSV, CV, GCV, etc.
     """
     if isinstance(filepaths, str):
         filepaths = [filepaths]
 
-    fig, axs = plt.subplots(1, figsize=(10, 6))
-    fig.suptitle('Potentiostat ADC Capture (Overlayed)')
+    fig, ax = plt.subplots(figsize=(8, 6))
+    fig.suptitle('Current vs Potential')
 
     for fp in filepaths:
         data = pd.read_csv(fp, header=None)
         label = os.path.basename(fp)
-        # Plot WEOUT (A)
-        axs.plot(data[1], data[0], label=label)
+        ax.plot(data[1], data[0], label=label)
 
-    axs.set_ylabel('WEOUT (A)', color='tab:red')
-    axs.set_xlabel('REOUT (V)', color='tab:blue')
-
-    # Add legends if more than one file
+    ax.set_xlabel('Potential (V)')
+    ax.set_ylabel('Current (A)')
     if len(filepaths) > 1:
-        axs.legend(loc='best')
-
+        ax.legend()
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    print("Function plot called in thread:", threading.current_thread().name)
     if show:
-        plt.show(block=True)
+        plt.show()
+    if figpath:
+        fig.savefig(figpath)
+    plt.close(fig)
+
+def plot_cv_cycles(
+    filepath: str,
+    figpath: str | None = None,
+    show: bool = False,
+    scan_points: int | None = None,
+    cycles: int | None = None
+):
+    """
+    Plot CV data with each cycle shown in a different color.
+    Assumes the data is ordered as [current, potential] rows, scans concatenated.
+    Provide scan_points (points per scan, optional) and cycles (optional) if known.
+    """
+    data = pd.read_csv(filepath, header=None)
+    current = data[0].values
+    potential = data[1].values
+
+    # If cycles or scan_points not given, try to infer:
+    if scan_points is None and cycles is not None:
+        scan_points = len(data) // cycles
+    elif cycles is None and scan_points is not None:
+        cycles = len(data) // scan_points
+    elif cycles is None and scan_points is None:
+        # Try to guess: look for periodicity (fall back to 1)
+        scan_points = len(data)
+        cycles = 1
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    fig.suptitle('Cyclic Voltammetry (CV) - Individual Cycles')
+
+    for n in range(cycles):
+        i0 = n * scan_points
+        i1 = (n + 1) * scan_points
+        ax.plot(potential[i0:i1], current[i0:i1], label=f"Cycle {n+1}")
+
+    ax.set_xlabel('Potential (V)')
+    ax.set_ylabel('Current (A)')
+    ax.legend()
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    if show:
+        plt.show()
     if figpath:
         fig.savefig(figpath)
     plt.close(fig)

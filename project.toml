@@ -1,28 +1,6 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "pyBEEP"
-version = "0.1.0"
-description = "Python library for controlling and acquiring data from a custom potentiostat."
-authors = [
-    { name="adpisa" }
-]
-readme = "README.md"
-license = { file="LICENSE" }
-dependencies = [
-    "minimalmodbus",
-    "numpy",
-    "matplotlib",
-    "pandas"
-]
-requires-python = ">=3.7"
-keywords = ["potentiostat", "electrochemistry", "chronoamperometry", "chronopotentiometry", "battery", "modbus"]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering :: Chemistry"
-]
+[tool.ruff]
+# You can configure which rules to enable, line length, and more
+line-length = 88
+exclude = ["venv", ".venv", "build", "dist"]
+target-version = "py311"
+select = ["E", "F", "I"]  # E: pycodestyle, F: pyflakes, I: isort

@@ -2,7 +2,7 @@ import numpy as np
 
 from .constants import POINT_INTERVAL_POT
 
-def constant_waveform(value: float, duration: float) -> np.ndarray:
+def constant_waveform(potential: float, duration: float) -> np.ndarray:
     """
     Generates a constant waveform for a specified duration.
 
@@ -15,7 +15,7 @@ def constant_waveform(value: float, duration: float) -> np.ndarray:
                     filled with `value`, sampled at intervals of POINT_INTERVAL_POT seconds.
     """
     length = int(duration / POINT_INTERVAL_POT)
-    return np.full(length, value, dtype=np.float32)
+    return np.full(length, potential, dtype=np.float32)
 
 def potential_steps(potentials: list[float], step_duration: float) -> np.ndarray:
     """
