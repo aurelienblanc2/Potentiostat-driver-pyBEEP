@@ -240,12 +240,12 @@ class PotentiostatController:
             n_register: int,
             ) -> list | None:
         try:
-            if (st - params['rd_dly_st']) > params['busy_dly_ns']:
+            if (st - params['rd_dly_st']*0) > params['busy_dly_ns']:
                 rd_data = self.device.read_data(REG_READ_ADDR,
                                                 n_register)  # Collect data
-                logger.debug(f"Read data: {len(rd_data)}")
                 return rd_data
         except minimalmodbus.SlaveReportedException:
+            logger.debug('Reading error, retrying...')
             params['rd_dly_st'] = monotonic_ns()
             params['rd_err_cnt'] += 1
             if params['rd_err_cnt'] > 16:
@@ -379,14 +379,14 @@ class PotentiostatController:
         logger.debug(f"Write list element count {len(write_list)}.")
         n_items = len(write_list)
 
-        self._setup_measurement(tia_gain=tia_gain, fifo_start=True, clear_fifo=True)
+        self._setup_measurement(tia_gain=tia_gain, clear_fifo=True, fifo_start=True)
 
         # Send and collect data
         i = 0
         params['transmission_st'] = monotonic_ns()
 
         post_read_attempts = 0
-        while post_read_attempts < 32:
+        while (post_read_attempts < 3) or ((params['rd_tx_reg'] / params['wr_tx_reg'] / 2) < 0.99):
             st = monotonic_ns()
             if i < n_items: #Writing
                 data = write_list[i:i + n_register].tolist()
@@ -408,7 +408,7 @@ class PotentiostatController:
                 if rd_data:
                     rd_list = convert_uint16_to_float32(rd_data)
                     data_queue.put(rd_list)
-                    params['rd_tx_reg'] += len(rd_list)
+                    params['rd_tx_reg'] += len(rd_data)
                     params['rd_err_cnt'] = 0
             if i >= n_items:
                 post_read_attempts += 1
