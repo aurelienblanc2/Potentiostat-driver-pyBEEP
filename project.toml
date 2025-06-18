@@ -1,6 +1,0 @@
-[tool.ruff]
-# You can configure which rules to enable, line length, and more
-line-length = 88
-exclude = ["venv", ".venv", "build", "dist"]
-target-version = "py311"
-select = ["E", "F", "I"]  # E: pycodestyle, F: pyflakes, I: isort

@@ -323,9 +323,9 @@ class PotentiostatController:
         result_tm = total_time_ns / 1e9
         data_rate = (2 * params['rx_tx_reg']) / result_tm
         logger.info(f"\nTotal transmission time {result_tm:3.4} s, data rate {(data_rate / 1000):3.4} KBytes/s.\n")
-        logger.debug(f"Failed writing: {params['wr_err_cnt']}")
-        logger.debug(f"Failed reading: {params['rd_err_cnt']}")
-        logger.debug(f"Send: {params['wr_tx_reg']}, Read: {params['rd_tx_reg']}, Diff: {params['rd_tx_reg'] - params['wr_tx_reg']*2}\n")
+        logger.info(f"Failed writing: {params['wr_err_cnt']}")
+        logger.info(f"Failed reading: {params['rd_err_cnt']}")
+        logger.info(f"Send: {params['wr_tx_reg']}, Read: {params['rd_tx_reg']}, Diff: {params['rd_tx_reg'] - params['wr_tx_reg']*2}\n")
 
     def _read_write_data_pid_inactive(
             self,
@@ -386,7 +386,7 @@ class PotentiostatController:
         params['transmission_st'] = monotonic_ns()
 
         post_read_attempts = 0
-        while (post_read_attempts < 3) or ((params['rd_tx_reg'] / params['wr_tx_reg'] / 2) < 0.99):
+        while (post_read_attempts < 3) or ((params['rd_tx_reg'] / params['wr_tx_reg'] / 2) <1.0):
             st = monotonic_ns()
             if i < n_items: #Writing
                 data = write_list[i:i + n_register].tolist()
@@ -418,11 +418,7 @@ class PotentiostatController:
         result_tm = (monotonic_ns() - params['transmission_st']) / 1e9
         data_rate = (2 * params['rx_tx_reg']) / result_tm
         logger.info(f"\nTotal transmission time {result_tm:3.4} s, data rate {(data_rate / 1000):3.4} KBytes/s.\n")
-        logger.debug(f"Failed writing: {params['wr_err_cnt']}")
-        logger.debug(f"Failed reading: {params['rd_err_cnt']}")
-        logger.debug(
-            f"Send: {params['wr_tx_reg']}, Read: {params['rd_tx_reg']}, Read/Sent/2: {params['rd_tx_reg'] / params['wr_tx_reg'] / 2}\n"
-            f"Time/point: {result_tm / params['wr_tx_reg']}\n")
-        logger.debug(f"Send: {params['wr_tx_reg']}, Read: {params['rd_tx_reg']}")
-        logger.debug(f"Actual points expected to read: {2 * params['wr_tx_reg']}, actual read: {params['rd_tx_reg']}")
+        logger.info(
+            f"Send: {params['wr_tx_reg']}, Read: {params['rd_tx_reg']}, Read/Sent/2: {params['rd_tx_reg'] / params['wr_tx_reg'] / 2}\n")
+        logger.info(f"Actual points expected to read: {2 * params['wr_tx_reg']}, actual read: {params['rd_tx_reg']}, extra read operations: {int((params['rd_tx_reg'] - params['wr_tx_reg'] * 2)/120)}\n")
 
