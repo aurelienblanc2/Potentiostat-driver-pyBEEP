@@ -1,8 +1,8 @@
 import numpy as np
 
-from .constants import POINT_INTERVAL_POT
+from .constants import POINT_INTERVAL
 
-def constant_waveform(potential: float, duration: float) -> np.ndarray:
+def constant_waveform(potential: float, duration: float) -> dict:
     """
     Generates a constant waveform for a specified duration.
 
@@ -11,13 +11,20 @@ def constant_waveform(potential: float, duration: float) -> np.ndarray:
         duration (float): Total time (in seconds) for which the value is held.
 
     Returns:
-        np.ndarray: 1D array of length `int(duration / POINT_INTERVAL_POT)`, 
-                    filled with `value`, sampled at intervals of POINT_INTERVAL_POT seconds.
+        dict: {
+            "Applied Potential (V)": np.ndarray,
+            "Time (s)": np.ndarray
+        }
     """
-    length = int(duration / POINT_INTERVAL_POT)
-    return np.full(length, potential, dtype=np.float32)
+    length = int(duration / POINT_INTERVAL)
+    applied_potential = np.full(length, potential, dtype=np.float32)
+    time = np.arange(length) * POINT_INTERVAL
+    return {
+        "Applied Potential (V)": applied_potential,
+        "Time (s)": time
+    }
 
-def potential_steps(potentials: list[float], step_duration: float) -> np.ndarray:
+def potential_steps(potentials: list[float], step_duration: float) -> dict:
     """
     Generates a potentiostatic waveform consisting of consecutive potential steps,
     each held for the specified duration.
@@ -27,16 +34,30 @@ def potential_steps(potentials: list[float], step_duration: float) -> np.ndarray
         step_duration (float): Duration (in seconds) for which each potential is held.
 
     Returns:
-        np.ndarray: 1D array of potentials, sampled at POINT_INTERVAL_POT intervals,
-                    where each potential is repeated for int(step_duration / POINT_INTERVAL_POT) samples.
+        dict: {
+            "Applied Potential (V)": np.ndarray,
+            "Time (s)": np.ndarray,
+            "step": np.ndarray
+        }
     """
-    length_step = int(step_duration / POINT_INTERVAL_POT)
-    return np.concatenate([
+    length_step = int(step_duration / POINT_INTERVAL)
+    applied_potential = np.concatenate([
         np.full(length_step, potential, dtype=np.float32)
         for potential in potentials
     ])
+    total_length = len(applied_potential)
+    time = np.arange(total_length) * POINT_INTERVAL
+    step = np.concatenate([
+        np.full(length_step, i, dtype=np.int32)
+        for i in range(len(potentials))
+    ])
+    return {
+        "Applied Potential (V)": applied_potential,
+        "Time (s)": time,
+        "step": step
+    }
 
-def linear_sweep(start: float, end: float, scan_rate: float) -> np.ndarray:
+def linear_sweep(start: float, end: float, scan_rate: float) -> dict:
     """
     Generates a linear sweep waveform from a start to an end value at a fixed scan rate.
 
@@ -46,30 +67,75 @@ def linear_sweep(start: float, end: float, scan_rate: float) -> np.ndarray:
         scan_rate (float): Rate of change per second (units per second).
 
     Returns:
-        np.ndarray: 1D array of values linearly interpolated from start to end, 
-                    sampled at intervals of POINT_INTERVAL_POT seconds.
+        dict: {
+            "Applied Potential (V)": np.ndarray,
+            "Time (s)": np.ndarray
+        }
     """
     duration = abs(end - start) / scan_rate
-    length = int(duration / POINT_INTERVAL_POT)
-    return np.linspace(start, end, length, dtype=np.float32)
+    length = int(duration / POINT_INTERVAL)
+    applied_potential = np.linspace(start, end, length, dtype=np.float32)
+    time = np.arange(length) * POINT_INTERVAL
+    return {
+        "Applied Potential (V)": applied_potential,
+        "Time (s)": time
+    }
 
-def cyclic_voltammetry(start: float, vertex: float, end: float, scan_rate: float, cycles: int) -> np.ndarray:
+
+def cyclic_voltammetry(start: float, vertex1: float, vertex2: float, end: float, scan_rate: float, cycles: int) -> dict:
     """
-    Generates a cyclic voltammetry waveform as a sequence of linear sweeps.
+    Generates a cyclic voltammetry waveform with asymmetric start and cycles.
+
+    First cycle: start → vertex1 → vertex2
+    Then cycles 2 to N: vertex2 → vertex1 → vertex2
+    Final segment (if end ≠ vertex2): vertex2 → vertex1 → vertex2 → end
 
     Args:
-        start (float): Initial value (e.g., voltage or current).
-        vertex (float): Vertex (turning point) value.
-        end (float): Final value.
-        scan_rate (float): Rate of change per second (units per second).
-        cycles (int): Number of complete cycles (forward and reverse) to generate.
+        start (float): Initial potential.
+        vertex1 (float): First vertex potential.
+        vertex2 (float): Second vertex potential.
+        end (float): Final potential after the last cycle.
+        scan_rate (float): Scan rate (V/s).
+        cycles (int): Number of full cycles (excluding first initial sweep).
 
     Returns:
-        np.ndarray: 1D array representing the cyclic voltammetry waveform, 
-                    sampled at intervals of POINT_INTERVAL_POT seconds.
+        dict: {
+            "Applied Potential (V)": np.ndarray,
+            "Time (s)": np.ndarray,
+            "Cycle": np.ndarray
+        }
     """
     segments = []
-    for _ in range(cycles):
-        segments.append(linear_sweep(start, vertex, scan_rate))
-        segments.append(linear_sweep(vertex, end, scan_rate))
-    return np.concatenate(segments)
+    cycle = []
+
+    # First cycle: start → vertex1 → vertex2
+    seg1 = linear_sweep(start, vertex1, scan_rate)["Applied Potential (V)"]
+    seg2 = linear_sweep(vertex1, vertex2, scan_rate)["Applied Potential (V)"]
+    segments.extend([seg1, seg2])
+    cycle.extend([1] * (len(seg1) + len(seg2)))
+
+    # Middle cycles: vertex2 → vertex1 → vertex2
+    for n in range(2, cycles + 1):
+        seg_up = linear_sweep(vertex2, vertex1, scan_rate)["Applied Potential (V)"]
+        seg_down = linear_sweep(vertex1, vertex2, scan_rate)["Applied Potential (V)"]
+        segments.extend([seg_up, seg_down])
+        cycle.extend([n] * (len(seg_up) + len(seg_down)))
+
+    # Final segment (optional): vertex2 → vertex1 → vertex2 → end
+    if end != vertex2:
+        seg1 = linear_sweep(vertex2, vertex1, scan_rate)["Applied Potential (V)"]
+        seg2 = linear_sweep(vertex1, vertex2, scan_rate)["Applied Potential (V)"]
+        seg3 = linear_sweep(vertex2, end, scan_rate)["Applied Potential (V)"]
+        segments.extend([seg1, seg2, seg3])
+        cycle.extend([cycles + 1] * (len(seg1) + len(seg2) + len(seg3)))
+
+    applied_potential = np.concatenate(segments)
+    total_length = len(applied_potential)
+    time = np.arange(total_length) * POINT_INTERVAL  # Must be defined globally
+    cycle = np.array(cycle, dtype=np.int32)
+
+    return {
+        "Applied Potential (V)": applied_potential,
+        "Time (s)": time,
+        "Cycle": cycle
+    }

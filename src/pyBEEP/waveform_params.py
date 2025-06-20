@@ -18,7 +18,8 @@ class LinearSweepParams(BaseModel):
 
 class CyclicVoltammetryParams(BaseModel):
     start: float
-    vertex: float
+    vertex1: float
+    vertex2: float
     end: float
     scan_rate: float
     cycles: int
@@ -41,7 +42,8 @@ class LinearGalvanostaticSweepParams(BaseModel):
 
 class CyclicGalvanostaticParams(BaseModel):
     start: float
-    vertex: float
+    vertex1: float
+    vertex2: float
     end: float
     num_steps: int
     step_duration: float

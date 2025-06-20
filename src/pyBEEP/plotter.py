@@ -74,7 +74,6 @@ def plot_cv_cycles(
     filepaths: str | list[str],
     figpath: str | None = None,
     show: bool = False,
-    scan_points: int | None = None,
     cycles: int | None = None
 ):
     """
@@ -93,27 +92,13 @@ def plot_cv_cycles(
     color_idx = 0
 
     for fp in filepaths:
-        data = pd.read_csv(fp, header=None)
-        current = data[0].values
-        potential = data[1].values
+        data = pd.read_csv(fp)
+        print(data['Cycle'].unique())
 
-        # If cycles or scan_points not given, try to infer:
-        local_scan_points = scan_points
-        local_cycles = cycles
-        if local_scan_points is None and local_cycles is not None:
-            local_scan_points = len(data) // local_cycles
-        elif local_cycles is None and local_scan_points is not None:
-            local_cycles = len(data) // local_scan_points
-        elif local_cycles is None and local_scan_points is None:
-            # Try to guess: look for periodicity (fall back to 1)
-            local_scan_points = len(data)
-            local_cycles = 1
-
-        for n in range(local_cycles):
-            i0 = n * local_scan_points
-            i1 = (n + 1) * local_scan_points
-            label = f"{os.path.basename(fp)} - Cycle {n+1}" if len(filepaths) > 1 or local_cycles > 1 else os.path.basename(fp)
-            ax.plot(potential[i0:i1], current[i0:i1], label=label, color=color_map(color_idx % 10))
+        for n in data['Cycle'].unique():
+            label = f"{os.path.basename(fp)} - Cycle {n}" if len(filepaths) > 1 or len(data['Cycle'].unique()) > 1 else os.path.basename(fp)
+            data_cycle = data[data['Cycle'] == n]
+            ax.plot(data_cycle['Potential (V)'], data_cycle['Current (A)'], label=label, color=color_map(color_idx % 10))
             color_idx += 1
 
     ax.set_xlabel('Potential (V)')

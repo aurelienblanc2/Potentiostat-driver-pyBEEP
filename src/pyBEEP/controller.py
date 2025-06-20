@@ -139,17 +139,18 @@ class PotentiostatController:
             self.device.send_command(CMD['FIFO_START'], 1)
         self.device.send_command(CMD['SET_SWITCH'], 1)
 
-    def _run_measurement(self, write_func: Callable[[queue.Queue], None], filepath: str, reducing_factor: int | None):
+    def _run_measurement(self, write_func: Callable[[queue.Queue], None], filepath: str, waveform: dict, reducing_factor: int | None):
         """
         Run the measurement  process, managing writing and saving threads.
 
         Args:
             write_func (Callable): Function to perform measurement and write data to a queue.
             filepath (str): Path to the file where data will be saved.
+            waveform (dict): Waveform data to be used in the measurement.
             reducing_factor (int | None): If set, will average every N rows before saving. Defaults to None (no reduction).
         """
         data_queue = queue.Queue()
-        writer = DataLogger(data_queue, filepath, reducing_factor)
+        writer = DataLogger(data_queue, waveform, filepath, reducing_factor)
 
         write_thread = threading.Thread(target=write_func, args=(data_queue,))
         save_thread = threading.Thread(target=writer.run)
@@ -223,14 +224,16 @@ class PotentiostatController:
         folder = folder or self.get_default_folder()
         filepath = f"{folder}/{filename}"
 
+        logger.info(f'Mode: {mode.upper()}\nWavefunction: {mode_config["waveform_func"]}\n'
+                     f'Gain: {tia_gain}\nFilepath: {filepath}')
+
         if mode_config['pid']:
             write_func = lambda q: self._read_write_data_pid_active(q, waveform, tia_gain)
         else:
             write_func = lambda q: self._read_write_data_pid_inactive(q,waveform, tia_gain)
+
         with self.device_lock:
-            logger.debug(f'Mode: {mode.upper()}\nWavefunction: {mode_config["waveform_func"]}\n'
-                         f'Gain: {tia_gain}\nFilepath: {filepath}')
-            self._run_measurement(write_func, filepath, reducing_factor)
+            self._run_measurement(write_func, filepath, waveform, reducing_factor)
 
         self.last_plot_path = filepath
 
@@ -293,29 +296,22 @@ class PotentiostatController:
 
         global_start_ns = monotonic_ns()
 
-        for current, duration in waveform:
+        for current, duration, length in zip(waveform["current_steps"], waveform["duration_steps"], waveform["length_steps"]):
             target = np.array([current,], dtype=np.float32).tobytes(order='C')
             target = np.frombuffer(target, np.uint16).tolist()
 
             #Activate PID and set target
             self.device.write_data(REG_WRITE_ADDR_PID, [CMD['PID_START']] + target)  # Send data
 
-            start_ns = monotonic_ns()
-            end_ns = start_ns + int(duration * 1e9)
-
             # Start collecting
-            while monotonic_ns() < end_ns:
+            while params['rd_tx_reg'] < length:
                 st = monotonic_ns()
-                # We need read two times for each write time because adc push two values to FIFO
-                for _ in range(0, 2):
-                    rd_data = self._read_operation(st, params, n_register)
-                    if rd_data:
-                        rd_list = convert_uint16_to_float32(rd_data)
-                        data_queue.put(rd_list)
-                        params['rd_tx_reg'] += len(rd_list)
-                        params['rd_err_cnt'] = 0
-                    else:
-                        break
+                rd_data = self._read_operation(st, params, n_register)
+                if rd_data:
+                    rd_list = convert_uint16_to_float32(rd_data)
+                    data_queue.put(rd_list)
+                    params['rd_tx_reg'] += len(rd_list)
+                    params['rd_err_cnt'] = 0
 
         self._teardown_measurement()
 
@@ -330,7 +326,7 @@ class PotentiostatController:
     def _read_write_data_pid_inactive(
             self,
             data_queue: Queue,
-            waveform: np.ndarray,
+            waveform: dict,
             tia_gain: int | None = 0,
             n_register: int = 120,
     ) -> None:
@@ -374,7 +370,7 @@ class PotentiostatController:
                   'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': monotonic_ns()}
 
         # Generate numpy array to send
-        y_bytes = waveform.tobytes(order='C')
+        y_bytes = waveform["Applied Potential (V)"].tobytes(order='C')
         write_list = np.frombuffer(y_bytes, np.uint16)
         logger.debug(f"Write list element count {len(write_list)}.")
         n_items = len(write_list)
