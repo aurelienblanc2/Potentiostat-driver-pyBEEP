@@ -377,6 +377,8 @@ class PotentiostatController:
         logger.info(f"Total items to write: {n_items} uint16, {n_items//2} float32,")
         for i in waveform:
             logger.debug(f"Waveform {i}: {waveform[i].shape}, {waveform[i].dtype}")
+            logger.debug(f"Waveform {i} first 10 values: {waveform[i][:10]}")
+        logger.debug(f"Write list first 10 values: {write_list[:10]}")
 
         self._setup_measurement(tia_gain=tia_gain, clear_fifo=True, fifo_start=True)
 
