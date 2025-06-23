@@ -10,7 +10,7 @@ class DataLogger:
     Handles arbitrary-sized incoming data blocks and ensures no data is lost, always averaging the specified number of points.
     """
 
-    def __init__(self, queue, waveform: dict, filepath: str, reducing_factor: int | None, ):
+    def __init__(self, queue, waveform: dict, filepath: str, reducing_factor: int | None):
         """
         Initialize the DataLogger.
 
@@ -80,6 +80,8 @@ class DataLogger:
                     arr = self.waveform[key][data_idx:new_idx]
                     arr = np.asarray(arr).reshape(-1, 1)
                     enriched_cols.append(arr)
+        if np.array(enriched_cols).shape[1] != measured.shape[0]:
+            measured = measured[:np.array(enriched_cols).shape[1]]
         enriched_buffer = np.hstack([measured] + enriched_cols)
 
         if not factor or factor < 2:

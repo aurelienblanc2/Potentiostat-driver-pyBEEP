@@ -5,7 +5,7 @@ from pyBEEP.utils import setup_logging
 
 setup_logging(level="INFO")
 
-device = PotentiostatDevice(port='COM4', address=1)
+device = PotentiostatDevice(port='COM5', address=1)
 controller = PotentiostatController(device=device)
 
 folder = r"C:\Users\pinillas\OneDrive - ICFO\Desktop"

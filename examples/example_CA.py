@@ -12,7 +12,7 @@ folder = r"C:\Users\pinillas\OneDrive - ICFO\Desktop"
 
 # --- 1. Constant Amperometry (CA) ---
 ca_file = os.path.join(folder, "test_CA.csv")
-for time in [2,5,10]:
+for time in [0.08,]:
     ca_params = {"potential": 0.5, "duration": time}
     controller.apply_measurement(mode="CA", params=ca_params, tia_gain=0, filename="test_CA.csv", folder=folder)
 plot_time_series(ca_file, figpath=ca_file.replace('.csv', '.png'), show=True)

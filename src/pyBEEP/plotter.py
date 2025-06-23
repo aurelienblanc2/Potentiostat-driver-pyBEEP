@@ -7,7 +7,6 @@ def plot_time_series(
     filepaths: str | list[str],
     figpath: str | None = None,
     show: bool = False,
-    dt: float = 1.0  # sample period in seconds; adjust if known, or infer from data if available
 ):
     """
     Plot current and potential vs time for CA, CP, GS, etc.
@@ -19,11 +18,10 @@ def plot_time_series(
     fig.suptitle('Current & Potential vs Time')
 
     for fp in filepaths:
-        data = pd.read_csv(fp, header=None)
-        t = np.arange(len(data)) * dt
+        data = pd.read_csv(fp)
         label = os.path.basename(fp)
-        axs[0].plot(t, data[0], label=label)  # Current (A)
-        axs[1].plot(t, data[1], label=label)  # Potential (V)
+        axs[0].plot(data['Time (s)'], data['Current (A)'], label=label)  # Current (A)
+        axs[1].plot(data['Time (s)'], data['Potential (V)'], label=label)  # Potential (V)
 
     axs[0].set_ylabel('Current (A)', color='tab:red')
     axs[1].set_ylabel('Potential (V)', color='tab:blue')
@@ -55,9 +53,9 @@ def plot_iv_curve(
     fig.suptitle('Current vs Potential')
 
     for fp in filepaths:
-        data = pd.read_csv(fp, header=None)
+        data = pd.read_csv(fp)
         label = os.path.basename(fp)
-        ax.plot(data[1], data[0], label=label)
+        ax.plot(data['Potential (V)'], data['Current (A)'], label=label)
 
     ax.set_xlabel('Potential (V)')
     ax.set_ylabel('Current (A)')

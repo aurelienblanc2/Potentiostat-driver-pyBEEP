@@ -26,7 +26,7 @@ class PotentiostatController:
         """
        Initialize the PotentiostatController.
 
-       Args:    
+       Args:
            device (PotentiostatDevice): The hardware interface for the potentiostat.
            default_folder (str | None): Default folder for saving measurement files. If None, no default is set.
        """
@@ -46,7 +46,7 @@ class PotentiostatController:
             "GCV": {"pid": True, "waveform_func": cyclic_galvanostatic, "param_class": CyclicGalvanostaticParams},
             "STEPSEQ": {"pid": True, "waveform_func": current_steps, "param_class": CurrentStepsParams},
         }
-        
+
     def set_default_folder(self, folder: str | None = None):
         """
         Set the default folder for saving measurement files.
@@ -70,7 +70,7 @@ class PotentiostatController:
         if not self.default_folder:
             self.set_default_folder()
         return self.default_folder
-            
+
     def get_available_modes(self) -> list[str]:
         """
         Get a list of available measurement modes supported by this controller.
@@ -182,7 +182,7 @@ class PotentiostatController:
         folder: str | None = None
     ):
         """
-        Function for performing electrochemical measurements with the potentiostat. Takes electrochemical method 
+        Function for performing electrochemical measurements with the potentiostat. Takes electrochemical method
         and its parameters, validates them, generate waveform for running the experiment, and runs it.
 
         Args:
@@ -195,7 +195,7 @@ class PotentiostatController:
 
         Raises:
             ValueError: If the mode is unknown or parameter validation fails.
-        
+
         Notes:
             - Select the TIA_GAIN carefully according to you expected current range of the reaction. If the gian is
               higher than needed (lower resistance), a higher noise level will be assumed unnecessarily. But if the
@@ -219,7 +219,7 @@ class PotentiostatController:
 
         # Use .model_dump() for Pydantic v2 to unpack validated params
         waveform = mode_config["waveform_func"](**param_obj.model_dump())
-        
+
         filename = filename or default_filename(mode=mode, tia_gain=tia_gain)
         folder = folder or self.get_default_folder()
         filepath = f"{folder}/{filename}"
@@ -264,8 +264,8 @@ class PotentiostatController:
             n_register: int | None = 120,
     ) -> None:
         """
-        Perform a measurement using PID-regulated current mode. The function handles writing commands 
-        of the commands to the potentiostat, given the current steps given, and reading of the 
+        Perform a measurement using PID-regulated current mode. The function handles writing commands
+        of the commands to the potentiostat, given the current steps given, and reading of the
         potentiostat adc output data, which is added to a queue.
 
         Args:
@@ -281,9 +281,9 @@ class PotentiostatController:
             - The current input is converted from np.float32 to uint16
             - The Transimpedance amplifier gain (TIA_GAIN) is initialized to the specified resistance and the FIFO
               is cleared.
-            - For each current step, the PID is activated (which will switch on the FIFO too), setting the current 
+            - For each current step, the PID is activated (which will switch on the FIFO too), setting the current
               value of the corresponding step as target (converted to uint16). This is followed a a reading loop that
-              keeps withdrawing data during the step duration. The data read, is converted back to np.float32 and 
+              keeps withdrawing data during the step duration. The data read, is converted back to np.float32 and
               added to the 'data_queue' shared with the saving thread.
             - The 'data_queue' consist of a np.ndarray: A numpy array where each element is a pair of float values:
               [potential (in V), current (in A)]
@@ -331,7 +331,7 @@ class PotentiostatController:
             n_register: int = 120,
     ) -> None:
         """
-        Perform a measurement using standard voltage-controlled mode. The function handles writing 
+        Perform a measurement using standard voltage-controlled mode. The function handles writing
         commands of the commands to the potentiostat, given the current steps given, and reading of
         the potentiostat adc output data, which is added to a queue.
 
@@ -360,7 +360,7 @@ class PotentiostatController:
            - Select the TIA_GAIN carefully according to your expected potential range of the reaction. If the gain
              is higher than needed (lower resistance), a higher noise level will be assumed unnecessarily. But if the
              gain is set too low (higher resistance), the desired potential might not be reached.
-           - Unexpected behaviour is sometimes observed in first iterations of the while loop: number of reading 
+           - Unexpected behaviour is sometimes observed in first iterations of the while loop: number of reading
              operations is sometimes lower than writing operations. This was solved by (1) eliminating delays on
              reading and writing attempts, and (2) Adding 3 extra attempt after writing finishes to try to not leave
              any unread data in the FIFO. Still issues arise if measurements last less than 1s.
@@ -374,6 +374,9 @@ class PotentiostatController:
         write_list = np.frombuffer(y_bytes, np.uint16)
         logger.debug(f"Write list element count {len(write_list)}.")
         n_items = len(write_list)
+        logger.info(f"Total items to write: {n_items} uint16, {n_items//2} float32,")
+        for i in waveform:
+            logger.debug(f"Waveform {i}: {waveform[i].shape}, {waveform[i].dtype}")
 
         self._setup_measurement(tia_gain=tia_gain, clear_fifo=True, fifo_start=True)
 
