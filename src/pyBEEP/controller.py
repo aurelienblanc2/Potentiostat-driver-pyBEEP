@@ -3,21 +3,22 @@ import numpy as np
 import queue
 import threading
 from time import monotonic_ns
-import minimalmodbus
 import logging
 from typing import Callable
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
 
 from .device import PotentiostatDevice
 from .logger import DataLogger
+from .measurement_modes.waveform_outputs import GalvanoOutput, PotenOutput
 from .utils import default_filename, convert_uint16_to_float32, select_folder
-from .waveforms_pot import constant_waveform, linear_sweep, cyclic_voltammetry, potential_steps
-from .waveforms_gal import single_point, linear_galvanostatic_sweep, cyclic_galvanostatic, current_steps
-from .constants import CMD, REG_READ_ADDR, REG_WRITE_ADDR_PID, REG_WRITE_ADDR_POT, BUSSY_DLAY_NS
-from .waveform_params import (
+from .measurement_modes.waveforms_pot import constant_waveform, linear_sweep, cyclic_voltammetry, potential_steps
+from .measurement_modes.waveforms_gal import single_point, linear_galvanostatic_sweep, cyclic_galvanostatic, current_steps
+from .utils.constants import CMD, REG_READ_ADDR, REG_WRITE_ADDR_PID, REG_WRITE_ADDR_POT, BUSSY_DLAY_NS
+from .measurement_modes.waveform_params import (
     ConstantWaveformParams, PotentialStepsParams, LinearSweepParams, CyclicVoltammetryParams,
     SinglePointParams, CurrentStepsParams, LinearGalvanostaticSweepParams, CyclicGalvanostaticParams
 )
+from .measurement_modes.measurement_modes import ModeName, MeasurementMode, MeasurementModeMap
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class PotentiostatController:
         self.default_folder = default_folder
         self.last_plot_path = None
         self.device_lock = threading.Lock()
-        self._measurement_modes = {
+        available_modes = {
             "CA": {"pid": False, "waveform_func": constant_waveform, "param_class": ConstantWaveformParams},
             "LSV": {"pid": False, "waveform_func": linear_sweep, "param_class": LinearSweepParams},
             "CV": {"pid": False, "waveform_func": cyclic_voltammetry, "param_class": CyclicVoltammetryParams},
@@ -46,6 +47,8 @@ class PotentiostatController:
             "GCV": {"pid": True, "waveform_func": cyclic_galvanostatic, "param_class": CyclicGalvanostaticParams},
             "STEPSEQ": {"pid": True, "waveform_func": current_steps, "param_class": CurrentStepsParams},
         }
+        validated_map = MeasurementModeMap.model_validate(available_modes)
+        self._measurement_modes = validated_map.root
 
     def set_default_folder(self, folder: str | None = None):
         """
@@ -93,7 +96,7 @@ class PotentiostatController:
         Raises:
             ValueError: If the mode is not recognized.
         """
-        mode_config = self._measurement_modes.get(mode.upper())
+        mode_config = self._get_mode(mode=mode)
         if not mode_config:
             raise ValueError(f"Unknown measurement mode: {mode}")
         param_class = mode_config["param_class"]
@@ -109,7 +112,7 @@ class PotentiostatController:
         Returns:
             Callable | None: The waveform generation function, or None if the mode is not found.
         """
-        return self._measurement_modes.get(mode.upper(), {}).get("waveform_func")
+        return self._get_mode(mode).waveform_func
 
     def is_pid_active(self, mode: str) -> bool:
         """
@@ -121,7 +124,26 @@ class PotentiostatController:
         Returns:
             bool: True if PID control is used for this mode, False otherwise.
         """
-        return self._measurement_modes.get(mode.upper(), {}).get("pid")
+        return self._get_mode(mode).pid
+
+    def _get_mode(self, mode: str) -> MeasurementMode:
+        """
+        Retrieve the validated configuration for a given measurement mode.
+
+        Args:
+            mode (str): The measurement mode key (e.g., 'CA', 'CV').
+
+        Returns:
+            MeasurementMode: The corresponding validated mode configuration.
+
+        Raises:
+            ValueError: If the mode is not recognized.
+        """
+        try:
+            return self._measurement_modes[ModeName(mode.upper())]
+        except ValueError:
+            raise ValueError(
+                f"Invalid measurement mode: '{mode}'. Available modes: {[m.value for m in self._measurement_modes]}")
 
     def _setup_measurement(self, tia_gain: int, clear_fifo: bool = False, fifo_start: bool = False):
         """
@@ -139,7 +161,7 @@ class PotentiostatController:
             self.device.send_command(CMD['FIFO_START'], 1)
         self.device.send_command(CMD['SET_SWITCH'], 1)
 
-    def _run_measurement(self, write_func: Callable[[queue.Queue], None], filepath: str, waveform: dict, reducing_factor: int | None):
+    def _run_measurement(self, write_func: Callable[[queue.Queue], None], filepath: str, waveform: BaseModel, sampling_interval: int | None):
         """
         Run the measurement  process, managing writing and saving threads.
 
@@ -147,10 +169,10 @@ class PotentiostatController:
             write_func (Callable): Function to perform measurement and write data to a queue.
             filepath (str): Path to the file where data will be saved.
             waveform (dict): Waveform data to be used in the measurement.
-            reducing_factor (int | None): If set, will average every N rows before saving. Defaults to None (no reduction).
+            sampling_interval (int | float | None): If set, will average every N rows before saving. Defaults to None (no reduction).
         """
         data_queue = queue.Queue()
-        writer = DataLogger(data_queue, waveform, filepath, reducing_factor)
+        writer = DataLogger(data_queue, waveform, filepath, sampling_interval)
 
         write_thread = threading.Thread(target=write_func, args=(data_queue,))
         save_thread = threading.Thread(target=writer.run)
@@ -177,7 +199,7 @@ class PotentiostatController:
         params: dict,
         *,
         tia_gain: int = 0,
-        reducing_factor: int | None = None,
+        sampling_interval: int | float | None = None,
         filename: str | None = None,
         folder: str | None = None
     ):
@@ -189,7 +211,7 @@ class PotentiostatController:
             mode (str): Measurement mode key (e.g., 'CA', 'CV', etc.).
             params (dict): Dictionary of parameters for the waveform generation.
             tia_gain (int, optional): Transimpedance amplifier gain setting. Defaults to 0.
-            reducing_factor (int | None): If set, will average every N rows before saving. Defaults to None (no reduction).
+            sampling_interval (int | float | None): If set, will average every N rows before saving. Defaults to None (no reduction).
             filename (str | None, optional): File path for storing measurement data. If None, a default is generated.
             folder (str | None, optional): Folder for storing the file. Used if filepath is None.
 
@@ -201,39 +223,35 @@ class PotentiostatController:
               higher than needed (lower resistance), a higher noise level will be assumed unnecessarily. But if the
               gain is set too low (higher resistance), the desired current might not be reached.
         """
-        mode_config = self._measurement_modes.get(mode.upper())
-        if not mode_config:
-            raise ValueError(f"Unknown measurement mode: {mode}")
+        mode_config = self._get_mode(mode)
+        param_class = mode_config.param_class
 
-        param_class = mode_config["param_class"]
         try:
             # Validate and parse user input with Pydantic
             param_obj = param_class(**params)
         except ValidationError as e:
-            required_fields = [f for f in param_class.model_fields.keys()]
+            required_fields = list(param_class.model_fields.keys())
             raise ValueError(
-                f"Parameter error for mode '{mode}':\n"
-                f"{e}\n"
-                f"Expected fields: {required_fields}"
+                f"Parameter error for mode '{mode}':\n{e}\nExpected fields: {required_fields}"
             )
 
-        # Use .model_dump() for Pydantic v2 to unpack validated params
-        waveform = mode_config["waveform_func"](**param_obj.model_dump())
+        # Generate the waveform using validated parameters
+        waveform = mode_config.waveform_func(**param_obj.model_dump())
 
         filename = filename or default_filename(mode=mode, tia_gain=tia_gain)
         folder = folder or self.get_default_folder()
         filepath = f"{folder}/{filename}"
 
-        logger.info(f'Mode: {mode.upper()}\nWavefunction: {mode_config["waveform_func"]}\n'
+        logger.info(f'Mode: {mode.upper()}\nWavefunction: {mode_config.waveform_func}\n'
                      f'Gain: {tia_gain}\nFilepath: {filepath}')
 
-        if mode_config['pid']:
+        if mode_config.pid:
             write_func = lambda q: self._read_write_data_pid_active(q, waveform, tia_gain)
         else:
             write_func = lambda q: self._read_write_data_pid_inactive(q,waveform, tia_gain)
 
         with self.device_lock:
-            self._run_measurement(write_func, filepath, waveform, reducing_factor)
+            self._run_measurement(write_func, filepath, waveform, sampling_interval)
 
         self.last_plot_path = filepath
 
@@ -247,7 +265,7 @@ class PotentiostatController:
                 rd_data = self.device.read_data(REG_READ_ADDR,
                                                 n_register)  # Collect data
                 return rd_data
-        except minimalmodbus.SlaveReportedException or minimalmodbus.SlaveDeviceBusyError:
+        except Exception as e:
             logger.debug('Reading error, retrying...')
             params['rd_dly_st'] = monotonic_ns()
             params['rd_err_cnt'] += 1
@@ -259,7 +277,7 @@ class PotentiostatController:
     def _read_write_data_pid_active(
             self,
             data_queue: Queue,
-            waveform: np.ndarray,
+            waveform: GalvanoOutput,
             tia_gain: int | None = 0,
             n_register: int | None = 120,
     ) -> None:
@@ -296,7 +314,9 @@ class PotentiostatController:
 
         global_start_ns = monotonic_ns()
 
-        for current, duration, length in zip(waveform["current_steps"], waveform["duration_steps"], waveform["length_steps"]):
+        for current, duration, length in zip(
+                waveform.current_steps, waveform.duration_steps, waveform.length_steps
+        ):
             target = np.array([current,], dtype=np.float32).tobytes(order='C')
             target = np.frombuffer(target, np.uint16).tolist()
 
@@ -326,7 +346,7 @@ class PotentiostatController:
     def _read_write_data_pid_inactive(
             self,
             data_queue: Queue,
-            waveform: dict,
+            waveform: PotenOutput,
             tia_gain: int | None = 0,
             n_register: int = 120,
     ) -> None:
@@ -337,7 +357,7 @@ class PotentiostatController:
 
          Args:
             data_queue (Queue): Queue to which acquired data is pushed.
-            waveform (np.ndarray): Array of potential values to be applied over time.
+            waveform (PotenOutput): Array of potential values to be applied over time.
             tia_gain (int | None): TIA gain setting for measurement.
             n_register (int): Number of data words to read per register operation.
 
@@ -370,14 +390,15 @@ class PotentiostatController:
                   'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': monotonic_ns()}
 
         # Generate numpy array to send
-        y_bytes = waveform["Applied Potential (V)"].tobytes(order='C')
+        y_bytes = waveform.applied_potential.tobytes(order='C')
         write_list = np.frombuffer(y_bytes, np.uint16)
         logger.debug(f"Write list element count {len(write_list)}.")
         n_items = len(write_list)
         logger.info(f"Total items to write: {n_items} uint16, {n_items//2} float32,")
-        for i in waveform:
-            logger.debug(f"Waveform {i}: {waveform[i].shape}, {waveform[i].dtype}")
-            logger.debug(f"Waveform {i} first 10 values: {waveform[i][:10]}")
+        for i in waveform.model_fields:
+            value = getattr(waveform, i)
+            logger.debug(f"Waveform {i}: {value.shape}, {value.dtype}")
+            logger.debug(f"Waveform {i} first 10 values: {value[:10]}")
         logger.debug(f"Write list first 10 values: {write_list[:10]}")
 
         self._setup_measurement(tia_gain=tia_gain, clear_fifo=True, fifo_start=True)
@@ -397,7 +418,7 @@ class PotentiostatController:
                         params['wr_err_cnt'] = 0
                         params['wr_tx_reg'] += n_register
                         i += n_register
-                except minimalmodbus.SlaveReportedException or minimalmodbus.InvalidResponseError:
+                except Exception as e:
                     params['wr_dly_st'] = monotonic_ns()
                     params['wr_err_cnt'] += 1
                     if params['wr_err_cnt'] > 10:

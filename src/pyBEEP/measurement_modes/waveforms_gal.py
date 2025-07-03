@@ -1,8 +1,9 @@
 import numpy as np
 
-from pyBEEP.constants import POINT_INTERVAL
+from .waveform_outputs import GalvanoOutput, CyclicGalvanoOutput
+from ..utils.constants import POINT_INTERVAL
 
-def single_point(current: float, duration: float) -> dict:
+def single_point(current: float, duration: float) -> GalvanoOutput:
     """
     Generates a single galvanostatic step.
 
@@ -11,28 +12,27 @@ def single_point(current: float, duration: float) -> dict:
         duration (float): Duration of the step (in seconds).
 
     Returns:
-        dict: {
-            "Applied Current (A)": np.ndarray,  # shape (N,)
-            "Time (s)": np.ndarray,             # shape (N,)
-            "current_steps": np.ndarray,        # shape (1,)
-            "duration_steps": np.ndarray,       # shape (1,)
-            "length_steps": np.ndarray          # shape (1,)
-        }
+        GalvanoOutput: 
+            - applied_current (np.ndarray): Constant applied current, shape (N,)
+            - time (np.ndarray): Time array in seconds, shape (N,)
+            - current_steps (np.ndarray): Single current step, shape (1,)
+            - duration_steps (np.ndarray): Step duration, shape (1,)
+            - length_steps (np.ndarray): Number of points in step, shape (1,)
     """
     num_points = int(duration / POINT_INTERVAL)
     applied_current = np.full(num_points, current, dtype=np.float32)
     time = np.arange(num_points) * POINT_INTERVAL
 
-    return {
-        "Applied Current (A)": applied_current,
-        "Time (s)": time,
-        "current_steps": np.array([current], dtype=np.float32),
-        "duration_steps": np.array([duration], dtype=np.float32),
-        "length_steps": np.array([num_points], dtype=np.int32)
-    }
+    return GalvanoOutput(
+        applied_current= applied_current,
+        time=time,
+        current_steps= np.array([current], dtype=np.float32),
+        duration_steps= np.array([duration], dtype=np.float32),
+        length_steps= np.array([num_points], dtype=np.int32),
+    )
 
 
-def current_steps(currents: list[float], step_duration: float) -> dict:
+def current_steps(currents: list[float], step_duration: float) -> GalvanoOutput:
     """
     Generates a sequence of galvanostatic steps, each with the same duration.
 
@@ -41,29 +41,28 @@ def current_steps(currents: list[float], step_duration: float) -> dict:
         step_duration (float): Duration (in seconds) for each step.
 
     Returns:
-        dict: {
-            "Applied Current (A)": np.ndarray,
-            "Time (s)": np.ndarray,
-            "current_steps": np.ndarray,
-            "duration_steps": np.ndarray,
-            "length_steps": np.ndarray
-        }
+        GalvanoOutput:
+            - applied_current (np.ndarray): Repeated current values, shape (N,)
+            - time (np.ndarray): Time array in seconds, shape (N,)
+            - current_steps (np.ndarray): Current step values, shape (n_steps,)
+            - duration_steps (np.ndarray): Step durations, shape (n_steps,)
+            - length_steps (np.ndarray): Points per step, shape (n_steps,)
     """
     num_points_per_step = int(step_duration / POINT_INTERVAL)
     applied_current = np.repeat(currents, num_points_per_step).astype(np.float32)
     total_points = len(applied_current)
     time = np.arange(total_points) * POINT_INTERVAL
 
-    return {
-        "Applied Current (A)": applied_current,
-        "Time (s)": time,
-        "current_steps": np.array(currents, dtype=np.float32),
-        "duration_steps": np.full(len(currents), step_duration, dtype=np.float32),
-        "length_steps": np.full(len(currents), num_points_per_step, dtype=np.int32)
-    }
+    return GalvanoOutput(
+        applied_current= applied_current,
+        time=time,
+        current_steps= np.array(currents, dtype=np.float32),
+        duration_steps= np.full(len(currents), step_duration, dtype=np.float32),
+        length_steps= np.full(len(currents), num_points_per_step, dtype=np.int32),
+    )
 
 
-def linear_galvanostatic_sweep(start: float, end: float, num_steps: int, step_duration: float) -> dict:
+def linear_galvanostatic_sweep(start: float, end: float, num_steps: int, step_duration: float) -> GalvanoOutput:
     """
     Generates a linear sweep of current from start to end in equal steps.
 
@@ -74,26 +73,25 @@ def linear_galvanostatic_sweep(start: float, end: float, num_steps: int, step_du
         step_duration (float): Duration (in seconds) of each step.
 
     Returns:
-        dict: {
-            "Applied Current (A)": np.ndarray,
-            "Time (s)": np.ndarray,
-            "current_steps": np.ndarray,
-            "duration_steps": np.ndarray,
-            "length_steps": np.ndarray
-        }
+        GalvanoOutput:
+            - applied_current (np.ndarray): Linearly spaced current steps, repeated, shape (N,)
+            - time (np.ndarray): Time array in seconds, shape (N,)
+            - current_steps (np.ndarray): Current step values, shape (num_steps,)
+            - duration_steps (np.ndarray): Step durations, shape (num_steps,)
+            - length_steps (np.ndarray): Points per step, shape (num_steps,)
     """
     currents = np.linspace(start, end, num_steps, dtype=np.float32)
     points_per_step = int(step_duration / POINT_INTERVAL)
     applied_current = np.repeat(currents, points_per_step)
     time = np.arange(len(applied_current)) * POINT_INTERVAL
 
-    return {
-        "Applied Current (A)": applied_current,
-        "Time (s)": time,
-        "current_steps": currents,
-        "duration_steps": np.full(num_steps, step_duration, dtype=np.float32),
-        "length_steps": np.full(num_steps, points_per_step, dtype=np.int32)
-    }
+    return GalvanoOutput(
+        applied_current= applied_current,
+        time=time,
+        current_steps= currents,
+        duration_steps= np.full(num_steps, step_duration, dtype=np.float32),
+        length_steps= np.full(num_steps, points_per_step, dtype=np.int32),
+    )
 
 
 def cyclic_galvanostatic(
@@ -104,7 +102,7 @@ def cyclic_galvanostatic(
     step_duration: float,
     cycles: int,
     end: float = None
-) -> dict:
+) -> CyclicGalvanoOutput:
     """
     Generates a cyclic galvanostatic waveform with two vertex currents.
 
@@ -123,14 +121,13 @@ def cyclic_galvanostatic(
         end (float, optional): Final current (if different from start).
 
     Returns:
-        dict: {
-            "Applied Current (A)": np.ndarray,
-            "Time (s)": np.ndarray,
-            "current_steps": np.ndarray,
-            "duration_steps": np.ndarray,
-            "length_steps": np.ndarray,
-            "cycle": np.ndarray
-        }
+        CyclicGalvanoOutput:
+            - applied_current (np.ndarray): All current points, shape (N,)
+            - time (np.ndarray): Time array in seconds, shape (N,)
+            - cycle (np.ndarray): Cycle number label for each point, shape (N,)
+            - current_steps (np.ndarray): All step current values, shape (M,)
+            - duration_steps (np.ndarray): Durations per step, shape (M,)
+            - length_steps (np.ndarray): Points per step, shape (M,)
     """
     current_steps_list = []
     duration_steps_list = []
@@ -164,12 +161,12 @@ def cyclic_galvanostatic(
     cycle_array = np.concatenate(cycle_segments)
     time = np.arange(len(applied_current)) * POINT_INTERVAL
 
-    return {
-        "Applied Current (A)": applied_current,
-        "Time (s)": time,
-        "Cycle": cycle_array,
-        "current_steps": np.array(current_steps_list, dtype=np.float32),
-        "duration_steps": np.array(duration_steps_list, dtype=np.float32),
-        "length_steps": np.array(length_steps_list, dtype=np.int32),
-    }
+    return CyclicGalvanoOutput(
+        applied_current= applied_current,
+        time=time,
+        cycle= cycle_array,
+        current_steps= np.array(current_steps_list, dtype=np.float32),
+        duration_steps= np.array(duration_steps_list, dtype=np.float32),
+        length_steps= np.array(length_steps_list, dtype=np.int32),
+    )
 

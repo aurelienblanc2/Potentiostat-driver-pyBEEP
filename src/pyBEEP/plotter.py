@@ -91,7 +91,6 @@ def plot_cv_cycles(
 
     for fp in filepaths:
         data = pd.read_csv(fp)
-        print(data['Cycle'].unique())
 
         for n in data['Cycle'].unique():
             label = f"{os.path.basename(fp)} - Cycle {n}" if len(filepaths) > 1 or len(data['Cycle'].unique()) > 1 else os.path.basename(fp)
