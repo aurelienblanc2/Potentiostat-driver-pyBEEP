@@ -48,3 +48,7 @@ class CyclicGalvanostaticParams(BaseModel):
     num_steps: int
     step_duration: float
     cycles: int
+    
+# --- OCP waveform parameters ---
+class OCPParams(BaseModel):
+    duration: float

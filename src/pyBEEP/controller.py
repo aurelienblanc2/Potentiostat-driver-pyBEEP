@@ -6,19 +6,21 @@ from time import monotonic_ns
 import logging
 from typing import Callable
 from pydantic import ValidationError, BaseModel
+from functools import partial
 
 from .device import PotentiostatDevice
 from .logger import DataLogger
-from .measurement_modes.waveform_outputs import GalvanoOutput, PotenOutput
-from .utils import default_filename, convert_uint16_to_float32, select_folder
+from .measurement_modes.waveform_outputs import GalvanoOutput, PotenOutput, BaseOuput
+from .measurement_modes.waveforms_ocp import ocp_waveform
+from .utils.utils import default_filename, convert_uint16_to_float32, select_folder
 from .measurement_modes.waveforms_pot import constant_waveform, linear_sweep, cyclic_voltammetry, potential_steps
 from .measurement_modes.waveforms_gal import single_point, linear_galvanostatic_sweep, cyclic_galvanostatic, current_steps
 from .utils.constants import CMD, REG_READ_ADDR, REG_WRITE_ADDR_PID, REG_WRITE_ADDR_POT, BUSSY_DLAY_NS
 from .measurement_modes.waveform_params import (
     ConstantWaveformParams, PotentialStepsParams, LinearSweepParams, CyclicVoltammetryParams,
-    SinglePointParams, CurrentStepsParams, LinearGalvanostaticSweepParams, CyclicGalvanostaticParams
+    SinglePointParams, CurrentStepsParams, LinearGalvanostaticSweepParams, CyclicGalvanostaticParams, OCPParams
 )
-from .measurement_modes.measurement_modes import ModeName, MeasurementMode, MeasurementModeMap
+from .measurement_modes.measurement_modes import ModeName, ControlMode, MeasurementMode, MeasurementModeMap
 
 logger = logging.getLogger(__name__)
 
@@ -36,16 +38,23 @@ class PotentiostatController:
         self.last_plot_path = None
         self.device_lock = threading.Lock()
         available_modes = {
-            "CA": {"pid": False, "waveform_func": constant_waveform, "param_class": ConstantWaveformParams},
-            "LSV": {"pid": False, "waveform_func": linear_sweep, "param_class": LinearSweepParams},
-            "CV": {"pid": False, "waveform_func": cyclic_voltammetry, "param_class": CyclicVoltammetryParams},
-            "PSTEP": {"pid": False, "waveform_func": potential_steps, "param_class": PotentialStepsParams},
+            "CA": {"mode_type": ControlMode.POT, "waveform_func": constant_waveform,
+                   "param_class": ConstantWaveformParams},
+            "LSV": {"mode_type": ControlMode.POT, "waveform_func": linear_sweep, "param_class": LinearSweepParams},
+            "CV": {"mode_type": ControlMode.POT, "waveform_func": cyclic_voltammetry,
+                   "param_class": CyclicVoltammetryParams},
+            "PSTEP": {"mode_type": ControlMode.POT, "waveform_func": potential_steps,
+                      "param_class": PotentialStepsParams},
 
-            "CP": {"pid": True, "waveform_func": single_point, "param_class": SinglePointParams},
-            "GS": {"pid": True, "waveform_func": linear_galvanostatic_sweep,
+            "CP": {"mode_type": ControlMode.GAL, "waveform_func": single_point, "param_class": SinglePointParams},
+            "GS": {"mode_type": ControlMode.GAL, "waveform_func": linear_galvanostatic_sweep,
                    "param_class": LinearGalvanostaticSweepParams},
-            "GCV": {"pid": True, "waveform_func": cyclic_galvanostatic, "param_class": CyclicGalvanostaticParams},
-            "STEPSEQ": {"pid": True, "waveform_func": current_steps, "param_class": CurrentStepsParams},
+            "GCV": {"mode_type": ControlMode.GAL, "waveform_func": cyclic_galvanostatic,
+                    "param_class": CyclicGalvanostaticParams},
+            "STEPSEQ": {"mode_type": ControlMode.GAL, "waveform_func": current_steps,
+                        "param_class": CurrentStepsParams},
+
+            "OCP": {"mode_type": ControlMode.OCP, "waveform_func": ocp_waveform, "param_class": OCPParams},
         }
         validated_map = MeasurementModeMap.model_validate(available_modes)
         self._measurement_modes = validated_map.root
@@ -245,10 +254,15 @@ class PotentiostatController:
         logger.info(f'Mode: {mode.upper()}\nWavefunction: {mode_config.waveform_func}\n'
                      f'Gain: {tia_gain}\nFilepath: {filepath}')
 
-        if mode_config.pid:
-            write_func = lambda q: self._read_write_data_pid_active(q, waveform, tia_gain)
-        else:
-            write_func = lambda q: self._read_write_data_pid_inactive(q,waveform, tia_gain)
+        match mode_config.mode_type:
+            case "GAL":
+                write_func = partial(self._read_write_data_pid_active, waveform=waveform, tia_gain=tia_gain)
+            case "POT":
+                write_func = partial(self._read_write_data_pid_inactive, waveform=waveform, tia_gain=tia_gain)
+            case "OCP":
+                write_func = partial(self._read_write_ocp, waveform= waveform, tia_gain=tia_gain)
+            case _:
+                raise ValueError(f"Unknown mode type: {mode_config.mode_type}")
 
         with self.device_lock:
             self._run_measurement(write_func, filepath, waveform, sampling_interval)
@@ -270,10 +284,42 @@ class PotentiostatController:
             params['rd_dly_st'] = monotonic_ns()
             params['rd_err_cnt'] += 1
             if params['rd_err_cnt'] > 16:
-                logger.error('Reading errors exceeded the limit, potentiostat not responding.')
+                logger.error(f'Reading errors exceeded the limit, potentiostat not responding. Last error: {e}')
                 raise
         return None
+    
+    def _read_write_ocp(
+            self,
+            data_queue: Queue,
+            waveform: BaseOuput,
+            tia_gain: int | None = 0,
+            n_register: int | None = 120,
+    ) -> None:
 
+        self._setup_measurement(tia_gain=tia_gain, clear_fifo=True, fifo_start=True)
+        params = {'busy_dly_ns': BUSSY_DLAY_NS, 'wr_err_cnt': 0, 'rd_err_cnt': 0, 'wr_dly_st': 0,
+                  'rd_dly_st': 0, 'rx_tx_reg': 0, 'wr_tx_reg': 0, 'rd_tx_reg': 0, 'transmission_st': monotonic_ns()}
+        
+        n_items = len(waveform.time)*2
+        global_start_ns = monotonic_ns()
+        # Start collecting
+        while params['rd_tx_reg'] < n_items:
+            st = monotonic_ns()
+            rd_data = self._read_operation(st, params, n_register)
+            if rd_data:
+                rd_list = convert_uint16_to_float32(rd_data)
+                data_queue.put(rd_list)
+                params['rd_tx_reg'] += len(rd_list)
+                params['rd_err_cnt'] = 0
+
+        self._teardown_measurement()
+        total_time_ns = monotonic_ns() - global_start_ns
+        result_tm = total_time_ns / 1e9
+        data_rate = (2 * params['rx_tx_reg']) / result_tm
+        logger.info(f"\nTotal transmission time {result_tm:3.4} s, data rate {(data_rate / 1000):3.4} KBytes/s.\n")
+        logger.info(f"Failed reading: {params['rd_err_cnt']}")
+        
+        
     def _read_write_data_pid_active(
             self,
             data_queue: Queue,
@@ -422,7 +468,7 @@ class PotentiostatController:
                     params['wr_dly_st'] = monotonic_ns()
                     params['wr_err_cnt'] += 1
                     if params['wr_err_cnt'] > 10:
-                        logger.error('Writing errors exceeded the limit, potentiostat not responding.')
+                        logger.error(f'Writing errors exceeded the limit, potentiostat not responding. Last error: {e}')
                         raise
             # We need read two times for each write time because adc push two values to FIFO
             for _ in range(0, 2):

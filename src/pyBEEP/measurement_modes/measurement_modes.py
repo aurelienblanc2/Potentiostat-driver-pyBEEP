@@ -11,9 +11,15 @@ class ModeName(str, Enum):
     GS = "GS"
     GCV = "GCV"
     STEPSEQ = "STEPSEQ"
+    OCP = "OCP"
+
+class ControlMode(str, Enum):
+    POT = "POT"
+    GAL = "GAL"
+    OCP = "OCP"
     
 class MeasurementMode(BaseModel):
-    pid: bool
+    mode_type: ControlMode
     waveform_func: Callable
     param_class: Type[BaseModel]
     
