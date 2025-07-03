@@ -92,7 +92,7 @@ def plot_cv_cycles(
     for fp in filepaths:
         data = pd.read_csv(fp)
 
-        for n in data['Cycle'].unique():
+        for n, cycles in zip(data['Cycle'].unique(), range(1,cycles+1)):
             label = f"{os.path.basename(fp)} - Cycle {n}" if len(filepaths) > 1 or len(data['Cycle'].unique()) > 1 else os.path.basename(fp)
             data_cycle = data[data['Cycle'] == n]
             ax.plot(data_cycle['Potential (V)'], data_cycle['Current (A)'], label=label, color=color_map(color_idx % 10))
