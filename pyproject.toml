@@ -8,9 +8,17 @@ authors = [
 ]
 readme = "README.md"
 license = { file="LICENSE" }
+keywords = ["potentiostat", "electrochemistry", "chronoamperometry", "chronopotentiometry", "battery", "modbus"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Chemistry"
+]
 requires-python = ">=3.13"
 dependencies = [
-    "minimalmodbus>2.1.1",
+    "minimalmodbus>=2.1.1",
     "numpy>=2.2.6",
     "matplotlib>=3.10.3",
     "pandas>=2.3.0",
@@ -26,19 +34,15 @@ dev = [
     "ruff>=0.12.0",
 ]
 
+[build-system]
+requires = ["setuptools >= 80.9.0", ]
+build-backend = "setuptools.build_meta"
+
+
 [project.scripts]
-process_raw_cli = "potentiostat.datapipeline.cli:process_raw_cli"
-peak_detection_proc_cli = "potentiostat.datapipeline.cli:peak_detection_proc_cli"
+process_raw_cli = "pyBEEP.datapipeline.cli:process_raw_cli"
+peak_detection_proc_cli = "pyBEEP.datapipeline.cli:peak_detection_proc_cli"
 
-
-keywords = ["potentiostat", "electrochemistry", "chronoamperometry", "chronopotentiometry", "battery", "modbus"]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering :: Chemistry"
-]
 
 [tool.pyright]
 include = ["potentiostat"]
