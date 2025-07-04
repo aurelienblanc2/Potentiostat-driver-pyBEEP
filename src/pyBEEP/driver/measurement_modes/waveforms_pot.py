@@ -1,7 +1,12 @@
 import numpy as np
 
-from .waveform_outputs import PotenOutput, SteppedPotenOutput, CyclicPotenOutput
-from ..utils.constants import POINT_INTERVAL
+from pyBEEP.driver.measurement_modes.waveform_outputs import (
+    PotenOutput,
+    SteppedPotenOutput,
+    CyclicPotenOutput,
+)
+from pyBEEP.driver.utils.constants import POINT_INTERVAL
+
 
 def constant_waveform(potential: float, duration: float) -> PotenOutput:
     """
@@ -20,11 +25,14 @@ def constant_waveform(potential: float, duration: float) -> PotenOutput:
     applied_potential = np.full(length, potential, dtype=np.float32)
     time = np.arange(length) * POINT_INTERVAL
     return PotenOutput(
-        applied_potential= applied_potential,
-        time= time,
+        applied_potential=applied_potential,
+        time=time,
     )
 
-def potential_steps(potentials: list[float], step_duration: float) -> SteppedPotenOutput:
+
+def potential_steps(
+    potentials: list[float], step_duration: float
+) -> SteppedPotenOutput:
     """
     Generates a potentiostatic waveform consisting of consecutive potential steps,
     each held for the specified duration.
@@ -40,22 +48,20 @@ def potential_steps(potentials: list[float], step_duration: float) -> SteppedPot
             - step (np.ndarray): Step indices (0-based), shape (N,)
     """
     length_step = int(step_duration / POINT_INTERVAL)
-    applied_potential = np.concatenate([
-        np.full(length_step, potential, dtype=np.float32)
-        for potential in potentials
-    ])
+    applied_potential = np.concatenate(
+        [np.full(length_step, potential, dtype=np.float32) for potential in potentials]
+    )
     total_length = len(applied_potential)
     time = np.arange(total_length) * POINT_INTERVAL
-    step = np.concatenate([
-        np.full(length_step, i, dtype=np.int32)
-        for i in range(len(potentials))
-    ])
+    step = np.concatenate(
+        [np.full(length_step, i, dtype=np.int32) for i in range(len(potentials))]
+    )
     return SteppedPotenOutput(
         applied_potential=applied_potential,
         time=time,
-        step= step,
+        step=step,
     )
-    
+
 
 def linear_sweep(start: float, end: float, scan_rate: float) -> PotenOutput:
     """
@@ -82,12 +88,12 @@ def linear_sweep(start: float, end: float, scan_rate: float) -> PotenOutput:
 
 
 def cyclic_voltammetry(
-        start: float, 
-        vertex1: float, 
-        vertex2: float, 
-        end: float, 
-        scan_rate: float, 
-        cycles: int
+    start: float,
+    vertex1: float,
+    vertex2: float,
+    end: float,
+    scan_rate: float,
+    cycles: int,
 ) -> CyclicPotenOutput:
     """
     Generates a cyclic voltammetry waveform with asymmetric start and cycles.
@@ -129,7 +135,11 @@ def cyclic_voltammetry(
     # Final segment (optional): vertex2 → vertex1 → vertex2 → end
     if end != vertex2:
         seg_extra = linear_sweep(vertex2, end, scan_rate).applied_potential
-        segments.extend([seg_extra,])
+        segments.extend(
+            [
+                seg_extra,
+            ]
+        )
         cycle.extend([cycles] * len(seg_extra))
 
     applied_potential = np.concatenate(segments)
@@ -139,6 +149,6 @@ def cyclic_voltammetry(
 
     return CyclicPotenOutput(
         applied_potential=applied_potential,
-        time= time,
-        cycle= cycle,
+        time=time,
+        cycle=cycle,
     )

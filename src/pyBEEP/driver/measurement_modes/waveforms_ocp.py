@@ -1,7 +1,8 @@
 import numpy as np
 
-from .waveform_outputs import BaseOuput
-from ..utils.constants import POINT_INTERVAL
+from pyBEEP.driver.measurement_modes.waveform_outputs import BaseOuput
+from pyBEEP.driver.utils.constants import POINT_INTERVAL
+
 
 def ocp_waveform(duration: float) -> BaseOuput:
     """

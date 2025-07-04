@@ -4,11 +4,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class PotentiostatDevice:
-    def __init__(self, port: str, address: int, baudrate: int = 1500000, timeout: float = 0.03):
+    def __init__(
+        self, port: str, address: int, baudrate: int = 1500000, timeout: float = 0.03
+    ):
         self.device = minimalmodbus.Instrument(port, address)
-        self.device.serial.baudrate = baudrate
-        self.device.serial.timeout = timeout
+        if self.device.serial is not None:
+            self.device.serial.baudrate = baudrate
+            self.device.serial.timeout = timeout
+        else:
+            raise ConnectionError("No device found")
 
     def send_command(self, command: int, parameter: int = 0) -> None:
         """
@@ -37,6 +43,9 @@ class PotentiostatDevice:
         """Write a list of register values to the device."""
         self.device.write_registers(address, data)
 
-    def read_data(self, address: int, count: int) -> List[int]:
+    def read_data(self, address: int, count: int | None) -> List[int]:
         """Read a list of register values from the device."""
-        return self.device.read_registers(address, count)
+        if count is not None:
+            return self.device.read_registers(address, count)
+        else:
+            return []

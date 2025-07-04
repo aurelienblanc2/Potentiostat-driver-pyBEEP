@@ -56,9 +56,9 @@ def test_driver_measurement_modes_import() -> None:
     assert hasattr(measurement_modes, "measurement_modes")
     assert hasattr(measurement_modes, "waveform_outputs")
     assert hasattr(measurement_modes, "waveform_params")
-    assert hasattr(measurement_modes, "waveform_gal")
-    assert hasattr(measurement_modes, "waveform_ocp")
-    assert hasattr(measurement_modes, "waveform_pot")
+    assert hasattr(measurement_modes, "waveforms_gal")
+    assert hasattr(measurement_modes, "waveforms_ocp")
+    assert hasattr(measurement_modes, "waveforms_pot")
 
 
 def test_driver_utils_import() -> None:

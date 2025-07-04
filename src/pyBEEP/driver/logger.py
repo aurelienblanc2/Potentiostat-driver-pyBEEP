@@ -2,10 +2,15 @@ import csv
 import numpy as np
 import logging
 from pydantic import BaseModel
+from typing import TYPE_CHECKING
 
-from .utils.constants import POINT_INTERVAL
+if TYPE_CHECKING:
+    import _csv
+
+from pyBEEP.driver.utils.constants import POINT_INTERVAL
 
 logger = logging.getLogger(__name__)
+
 
 class DataLogger:
     """
@@ -13,7 +18,13 @@ class DataLogger:
     Handles arbitrary-sized incoming data blocks and ensures no data is lost, always averaging the specified number of points.
     """
 
-    def __init__(self, queue, waveform: BaseModel, filepath: str, sampling_interval: float | int | None):
+    def __init__(
+        self,
+        queue,
+        waveform: BaseModel,
+        filepath: str,
+        sampling_interval: float | int | None,
+    ):
         """
         Initialize the DataLogger. And calculates the reducing factor according to the sampling interval  specified
 
@@ -29,7 +40,9 @@ class DataLogger:
         self.metadata_keys = list(waveform.model_fields.keys())
         if sampling_interval is not None:
             if sampling_interval < POINT_INTERVAL:
-                logger.warning("Introduced sampling interval is bellow maximum BEEP resolution\n")
+                logger.warning(
+                    "Introduced sampling interval is bellow maximum BEEP resolution\n"
+                )
                 logger.warning(f"Sampling intervalas changed to: {POINT_INTERVAL} s")
                 sampling_interval = POINT_INTERVAL
             self.reducing_factor = int(round(sampling_interval / POINT_INTERVAL))
@@ -37,7 +50,7 @@ class DataLogger:
             self.reducing_factor = 1
         logger.info(f"Reducing factor applied: {self.reducing_factor}")
 
-    def run(self)->None:
+    def run(self) -> None:
         """
         Continuously reads data blocks from the queue and writes them to a CSV file.
         If reducing_factor is set, averages every N rows before writing.
@@ -61,7 +74,13 @@ class DataLogger:
                 file.flush()
         logger.info(f"Saved: {self.filepath}")
 
-    def _save_batch(self, writer: csv.writer, buffer: list, data_idx: int, flush_all: bool = False) -> tuple:
+    def _save_batch(
+        self,
+        writer: "_csv._writer",
+        buffer: list,
+        data_idx: int,
+        flush_all: bool = False,
+    ) -> tuple:
         """
         Enriches the buffer with waveform metadata (if present) and writes as many reduced (averaged)
         rows as possible to the CSV file. Keeps any leftover rows (less than reducing_factor) in the
@@ -92,7 +111,11 @@ class DataLogger:
                     metadata[key] = np.asarray(value).reshape(-1, 1)
 
         # Ensure metadata and measured have same length
-        min_len = min(len(potential), *(len(v) for v in metadata.values())) if metadata else len(potential)
+        min_len = (
+            min(len(potential), *(len(v) for v in metadata.values()))
+            if metadata
+            else len(potential)
+        )
         potential = potential[:min_len]
         current = current[:min_len]
         exp_num = np.ones((min_len, 1), dtype=int)
@@ -125,11 +148,11 @@ class DataLogger:
             col_names.append("Applied current (A)")
 
         enriched_buffer = np.hstack(ordered_cols)
-        
+
         # Write header
         if data_idx == 0:
             writer.writerow(col_names)
-            
+
         # Write to CSV
         if factor < 2:
             for row in enriched_buffer:
@@ -138,7 +161,7 @@ class DataLogger:
         else:
             idx = 0
             while len(enriched_buffer) - idx >= factor:
-                chunk = enriched_buffer[idx:idx + factor]
+                chunk = enriched_buffer[idx : idx + factor]
                 avg = chunk.mean(axis=0)
                 avg[0] = chunk[0, 0]
                 writer.writerow(avg.tolist())

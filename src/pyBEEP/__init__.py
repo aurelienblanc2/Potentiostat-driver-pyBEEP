@@ -36,6 +36,10 @@ from pyBEEP.datapipeline import (
 from pyBEEP.driver import (
     PotentiostatController,
     PotentiostatDevice,
+    plot_time_series,
+    plot_cv_cycles,
+    setup_logging,
+    plot_iv_curve,
 )
 
 __all__ = [
@@ -48,7 +52,10 @@ __all__ = [
     "ParametersPeakDetection",
     "plot_potentiostat_raw",
     "plot_potentiostat_proc",
-
     "PotentiostatController",
     "PotentiostatDevice",
+    "plot_time_series",
+    "plot_cv_cycles",
+    "plot_iv_curve",
+    "setup_logging",
 ]

@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Callable, Type
 from pydantic import BaseModel, RootModel
 
+
 class ModeName(str, Enum):
     CA = "CA"
     LSV = "LSV"
@@ -13,15 +14,19 @@ class ModeName(str, Enum):
     STEPSEQ = "STEPSEQ"
     OCP = "OCP"
 
+
 class ControlMode(str, Enum):
     POT = "POT"
     GAL = "GAL"
     OCP = "OCP"
-    
+
+
 class MeasurementMode(BaseModel):
     mode_type: ControlMode
     waveform_func: Callable
     param_class: Type[BaseModel]
-    
+    pid: bool
+
+
 class MeasurementModeMap(RootModel[dict[ModeName, MeasurementMode]]):
     pass

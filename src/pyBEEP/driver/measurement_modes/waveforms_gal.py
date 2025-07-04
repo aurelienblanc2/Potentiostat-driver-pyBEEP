@@ -1,7 +1,11 @@
 import numpy as np
 
-from .waveform_outputs import GalvanoOutput, CyclicGalvanoOutput
-from ..utils.constants import POINT_INTERVAL
+from pyBEEP.driver.measurement_modes.waveform_outputs import (
+    GalvanoOutput,
+    CyclicGalvanoOutput,
+)
+from pyBEEP.driver.utils.constants import POINT_INTERVAL
+
 
 def single_point(current: float, duration: float) -> GalvanoOutput:
     """
@@ -12,7 +16,7 @@ def single_point(current: float, duration: float) -> GalvanoOutput:
         duration (float): Duration of the step (in seconds).
 
     Returns:
-        GalvanoOutput: 
+        GalvanoOutput:
             - applied_current (np.ndarray): Constant applied current, shape (N,)
             - time (np.ndarray): Time array in seconds, shape (N,)
             - current_steps (np.ndarray): Single current step, shape (1,)
@@ -24,11 +28,11 @@ def single_point(current: float, duration: float) -> GalvanoOutput:
     time = np.arange(num_points) * POINT_INTERVAL
 
     return GalvanoOutput(
-        applied_current= applied_current,
+        applied_current=applied_current,
         time=time,
-        current_steps= np.array([current], dtype=np.float32),
-        duration_steps= np.array([duration], dtype=np.float32),
-        length_steps= np.array([num_points], dtype=np.int32),
+        current_steps=np.array([current], dtype=np.float32),
+        duration_steps=np.array([duration], dtype=np.float32),
+        length_steps=np.array([num_points], dtype=np.int32),
     )
 
 
@@ -54,15 +58,17 @@ def current_steps(currents: list[float], step_duration: float) -> GalvanoOutput:
     time = np.arange(total_points) * POINT_INTERVAL
 
     return GalvanoOutput(
-        applied_current= applied_current,
+        applied_current=applied_current,
         time=time,
-        current_steps= np.array(currents, dtype=np.float32),
-        duration_steps= np.full(len(currents), step_duration, dtype=np.float32),
-        length_steps= np.full(len(currents), num_points_per_step, dtype=np.int32),
+        current_steps=np.array(currents, dtype=np.float32),
+        duration_steps=np.full(len(currents), step_duration, dtype=np.float32),
+        length_steps=np.full(len(currents), num_points_per_step, dtype=np.int32),
     )
 
 
-def linear_galvanostatic_sweep(start: float, end: float, num_steps: int, step_duration: float) -> GalvanoOutput:
+def linear_galvanostatic_sweep(
+    start: float, end: float, num_steps: int, step_duration: float
+) -> GalvanoOutput:
     """
     Generates a linear sweep of current from start to end in equal steps.
 
@@ -86,11 +92,11 @@ def linear_galvanostatic_sweep(start: float, end: float, num_steps: int, step_du
     time = np.arange(len(applied_current)) * POINT_INTERVAL
 
     return GalvanoOutput(
-        applied_current= applied_current,
+        applied_current=applied_current,
         time=time,
-        current_steps= currents,
-        duration_steps= np.full(num_steps, step_duration, dtype=np.float32),
-        length_steps= np.full(num_steps, points_per_step, dtype=np.int32),
+        current_steps=currents,
+        duration_steps=np.full(num_steps, step_duration, dtype=np.float32),
+        length_steps=np.full(num_steps, points_per_step, dtype=np.int32),
     )
 
 
@@ -101,7 +107,7 @@ def cyclic_galvanostatic(
     num_steps: int,
     step_duration: float,
     cycles: int,
-    end: float = None
+    end: float | None = None,
 ) -> CyclicGalvanoOutput:
     """
     Generates a cyclic galvanostatic waveform with two vertex currents.
@@ -162,11 +168,10 @@ def cyclic_galvanostatic(
     time = np.arange(len(applied_current)) * POINT_INTERVAL
 
     return CyclicGalvanoOutput(
-        applied_current= applied_current,
+        applied_current=applied_current,
         time=time,
-        cycle= cycle_array,
-        current_steps= np.array(current_steps_list, dtype=np.float32),
-        duration_steps= np.array(duration_steps_list, dtype=np.float32),
-        length_steps= np.array(length_steps_list, dtype=np.int32),
+        cycle=cycle_array,
+        current_steps=np.array(current_steps_list, dtype=np.float32),
+        duration_steps=np.array(duration_steps_list, dtype=np.float32),
+        length_steps=np.array(length_steps_list, dtype=np.int32),
     )
-
