@@ -252,7 +252,8 @@ def _cleaning_raw(
         ):
             idx_anomalies = idx_anomalies + [int(series_voltage_diff.index[-1])]
 
-    # To take into account that the slicing is not perfect because of the anomaly and that we can catch the anomaly pattern from the next ramp
+    # To account for imperfect slicing caused by the anomaly, and the possibility of detecting the anomaly pattern
+    # in the next ramp
     if len(idx_anomalies) % 2 != 0:
         idx_anomalies.pop(-1)
 
@@ -272,7 +273,8 @@ def _cleaning_raw(
         # Cleaning the anomaly on the voltage and the Current
         df_raw.drop(idx_remove, inplace=True)
 
-    # TODO : We could also cleaned the residual spikes on the current, too much data loss ? For now we consider the smoothing called after this function is enough
+    # TODO : We could also cleaned the residual spikes on the current, too much data loss ? For now we consider
+    #  the smoothing called after this function is enough
 
     # Cleaned DataFrame
     return df_raw

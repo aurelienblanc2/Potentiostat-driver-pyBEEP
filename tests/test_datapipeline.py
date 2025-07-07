@@ -19,8 +19,8 @@ Modules:
             peak_detection
             slicing_ramp
         Nested Functions:
-            _remove_neighbor_idx
-            _idx_derivation_threshold
+            _merge_neighbor_idx
+            _non_consecutive_idx
             _find_candidate_extremum
             _extract_row_extremum
 
@@ -58,8 +58,8 @@ Modules:
 # from potentiostat.datapipeline.signal_processing import (
 #     peak_detection,
 #     slicing_ramp,
-#     _remove_neighbor_idx,
-#     _idx_derivation_threshold,
+#     _merge_neighbor_idx,
+#     _non_consecutive_idx,
 #     _find_candidate_extremum,
 #     _extract_row_extremum,
 # )

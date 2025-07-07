@@ -6,8 +6,8 @@ Functions:
     slicing_ramp
 
 Nested functions:
-    _remove_neighbor_idx
-    _idx_derivation_threshold
+    _merge_neighbor_idx
+    _non_consecutive_idx
     _find_candidate_extremum
     _extract_row_extremum
 """
@@ -123,25 +123,27 @@ def peak_detection(
     width_max_idx = parameters.width_max // unit_step
     derivation_width_idx = parameters.derivation_width // unit_step
 
-    # TODO : Non continuity of the Series could be a problem, write a loop on X not the index or interpolating the missing X,Y
+    # TODO : Non continuity of the Series could be a problem, write a loop on X not the index or interpolating
+    #  the missing X,Y
     # Derivation of Y by X with a step HalfWidthMin
     df_derivation = (
         df[series_name[1]].diff(periods=derivation_width_idx).dropna()
         / df[series_name[0]].diff(periods=derivation_width_idx).dropna().abs()
     )
 
-    # Detection is impossible on the first derivation_width_idx and we discard the last derivation_width_idx (to remove the smoothing border artifacts)
+    # Detection is impossible on the first derivation_width_idx and we discard the last derivation_width_idx
+    # (to remove the smoothing border artifacts)
     df_derivation.drop(df_derivation.index[-int(derivation_width_idx) :], inplace=True)
 
-    # Extracting the derivation higher than the threshold DerivationSensitivity
+    # Extracting the derivative higher than the threshold DerivationSensitivity
     df_derivation_inc = df_derivation[df_derivation > parameters.derivation_sensitivity]
     df_derivation_dec = df_derivation[
         df_derivation < -parameters.derivation_sensitivity
     ]
 
-    # Extracting the first and last indexes of the derivation higher than the threshold DerivationSensitivity
-    inc_idx = _idx_derivation_threshold(df_derivation_inc)
-    dec_idx = _idx_derivation_threshold(df_derivation_dec)
+    # Extracting the indices where the derivative just surpasses or drops below the threshold DerivationSensitivity
+    inc_idx = _non_consecutive_idx(df_derivation_inc)
+    dec_idx = _non_consecutive_idx(df_derivation_dec)
 
     # Sign of the derivation
     df_derivation_sign = np.sign(df_derivation)
@@ -160,7 +162,7 @@ def peak_detection(
                 half_width_min_idx,
                 df_derivation_sign,
             )
-            peak_idx_max = _remove_neighbor_idx(
+            peak_idx_max = _merge_neighbor_idx(
                 peak_idx_max, half_width_min_idx, dict_inc_max, dict_dec_max
             )
             df_peak = _extract_row_extremum(
@@ -185,7 +187,7 @@ def peak_detection(
                 half_width_min_idx,
                 df_derivation_sign,
             )
-            peak_idx_min = _remove_neighbor_idx(
+            peak_idx_min = _merge_neighbor_idx(
                 peak_idx_min, half_width_min_idx, dict_dec_min, dict_inc_min
             )
             df_peak = _extract_row_extremum(
@@ -318,9 +320,30 @@ def slicing_ramp(df: pd.DataFrame, series_name: str) -> List[int]:
 ########################
 
 
-def _remove_neighbor_idx(
-    list_idx: List[int], half_window, dict1: dict, dict2: dict
+def _merge_neighbor_idx(
+    list_idx: List[int],
+    distance: int,
+    dict1: dict | None = None,
+    dict2: dict | None = None,
 ) -> List[int]:
+    """
+    Description :
+
+        Merge the indices in list_idx that are within distance of each other.
+        Also update the associated dictionaries dict1 and dict2, if they exist
+
+    Args:
+
+        list_idx (type: List[int]) : List of the indices to check for merging
+        distance (type: int) : minimal distance between neighboring indices
+        dict1 (type : dict) : Dictionary with index as key
+        dict2 (type : dict) : Dictionary with index as key
+
+    Returns:
+
+        list_idx (type: List[int]) : List of the indices merged
+    """
+
     # Main
     ######
     # TODO : Maybe a check on the WidthMax to avoid merging to much points ?
@@ -328,14 +351,22 @@ def _remove_neighbor_idx(
     tmp_len = len(list_idx) - 1
 
     while cpt < tmp_len:
-        if (list_idx[cpt + 1] - list_idx[cpt]) <= half_window:
+        if (list_idx[cpt + 1] - list_idx[cpt]) <= distance:
             new_idx = int((list_idx[cpt + 1] + list_idx[cpt]) // 2)
-            dict1[str(new_idx)] = min(
-                dict1[str(list_idx[cpt])], dict1[str(list_idx[cpt + 1])]
-            )
-            dict2[str(new_idx)] = max(
-                dict2[str(list_idx[cpt])], dict2[str(list_idx[cpt + 1])]
-            )
+
+            if dict1 is not None:
+                dict1[str(new_idx)] = min(
+                    dict1[str(list_idx[cpt])], dict1[str(list_idx[cpt + 1])]
+                )
+                dict1.pop(str(list_idx[cpt]))
+                dict1.pop(str(list_idx[cpt + 1]))
+
+            if dict2 is not None:
+                dict2[str(new_idx)] = max(
+                    dict2[str(list_idx[cpt])], dict2[str(list_idx[cpt + 1])]
+                )
+                dict2.pop(str(list_idx[cpt]))
+                dict2.pop(str(list_idx[cpt + 1]))
 
             list_idx[cpt] = new_idx
             list_idx.pop(cpt + 1)
@@ -347,17 +378,32 @@ def _remove_neighbor_idx(
     return list_idx
 
 
-def _idx_derivation_threshold(df_derivation: pd.DataFrame) -> List[int]:
+def _non_consecutive_idx(df: pd.DataFrame) -> List[int]:
+    """
+    Description :
+
+        Extracting the indices of a DataFrame that are not consecutive
+
+    Args:
+
+        df (type: pd.DataFrame) : List of the indices to check for merging
+
+    Returns:
+
+        idx (type: List[int]) : List of the indices
+    """
+
     # Main
     ######
     idx = []
 
-    if len(df_derivation) > 0:
-        idx.append(int(df_derivation.index.tolist()[0]))
-        idx.append(int(df_derivation.index.tolist()[-1]))
+    if len(df) > 0:
+        idx.append(int(df.index.tolist()[0]))
+        if len(df) > 1:
+            idx.append(int(df.index.tolist()[-1]))
 
-    idx = idx + df_derivation[df_derivation.index.diff() > 1].index.tolist()
-    idx = idx + df_derivation[df_derivation.index.diff(periods=-1) < -1].index.tolist()
+    idx = idx + df[df.index.diff() > 1].index.tolist()
+    idx = idx + df[df.index.diff(periods=-1) < -1].index.tolist()
 
     # Sorting them for faster calculation later
     idx.sort()
@@ -369,13 +415,39 @@ def _find_candidate_extremum(
     zero_idx: List[int],
     list_idx1: List[int],
     list_idx2: List[int],
-    width_max_idx,
-    half_width_min_idx,
+    width_max_idx: int,
+    half_width_min_idx: int,
     df_derivation_sign: pd.DataFrame,
 ) -> tuple[List[int], dict, dict]:
+    """
+    Description :
+
+        Extracting the indices that are good candidates to be extremum meaning we want at least one side of the peak
+        to have a dynamic over the derivative threshold and at least one side of the peak to globally increase or
+        decrease
+
+    Args:
+
+        zero_idx (type: List[int]) : List of the indices of the zeros of the derivative
+        list_idx1 (type: List[int]) : List of the indices of the derivative over the threshold
+        list_idx2 (type: List[int]) : List of the indices of the derivative over the threshold
+        width_max_idx (type: int) : Maximum width of the peak to be detected
+        half_width_min_idx (type: int) : Minimum half width of the peak to be detected
+        df_derivation_sign (type: pd.DataFrame) : Sign of the derivative for the detection
+
+    Returns:
+
+        peak_idx (type: List[int]) : List of the indices of the potential peaks
+        dict1 (type: dict) : Dictionary with index of the peak as key and index of the derivative over the threshold
+                             as value
+        dict2 (type: dict) : Dictionary with index of the peak as key and index of the derivative over the threshold
+                             as value
+    """
+
     # Main
     ######
     # Monotonicity sensitivity around the zeros
+    # TODO : CHeck these values 0.8 / 0.5
     monotonicity_sensitivity_1 = 0.75
     monotonicity_sensitivity_2 = 0.25
 
@@ -451,10 +523,33 @@ def _extract_row_extremum(
     peak_idx: List[int],
     dict1: dict,
     dict2: dict,
-    derivation_width_idx,
+    derivation_width_idx: int,
     name: str,
     type_extremum: str,
 ) -> pd.DataFrame:
+    """
+    Description :
+
+        Extracting the indices of a DataFrame that are not consecutive
+
+    Args:
+
+        df (type: pd.DataFrame) : DataFrame in which the peak should be detected
+        df_derivation_sign (type: pd.DataFrame) : DataFrame with the derivative sign
+        df_peak (type: pd.DataFrame) : DataFrame with the detected peaks to fill up
+        peak_idx (type: List[int]) : List with indices of the peaks
+        dict1 (type: dict) : Dictionary with the peak index as the key and the window start index as the value
+        dict2 (type: dict) : Dictionary with the peak index as the key and the window end index as the value
+        derivation_width_idx (type: int) : Horizon on which the derivation is performed
+        name (type: str) : Name of the series in which to find the peak
+        type_extremum (type: str) : Type of the extremum ("Max" or "Min")
+
+
+    Returns:
+
+        df_peak (type: pd.DataFrame) :  DataFrame with the detected peaks to filled up
+    """
+
     # Main
     ######
     for i in peak_idx:
@@ -486,7 +581,8 @@ def _extract_row_extremum(
 
         # Quality Mark is based on the fluctuation of the derivation before and after the zero
         # it takes into account smoothness of the signal (on the derivation horizon) and sharpness of the peak
-        # TODO : Add a mark about peak height and smoothness of original signal ? Peak window seems really zoomed to really assess height and for sign of derivation to have a real impact on the quality mark
+        # TODO : Add a mark about peak height and smoothness of original signal ? Peak window seems really zoomed
+        #  to really assess height and for sign of derivation to have a real impact on the quality mark
         quality_mark_derivation = abs(
             mean_sign_derivation_before * mean_sign_derivation_after
         )

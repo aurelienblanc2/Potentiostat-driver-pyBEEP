@@ -230,6 +230,23 @@ def _plot_cycle(
     name: str,
     path_folder_out: str,
 ):
+    """
+    Description :
+
+        Plot and/or save figures for analyzing potentiostat data processing over a full cycle
+
+    Args:
+
+        df_raw (type: pd.DataFrame) : Raw potentiostat data Dataframe
+        df_proc (type: pd.DataFrame) : Processed potentiostat data Dataframe
+        df_peak (type: pd.DataFrame) : Peaks in the processed potentiostat Dataframe
+        mode (type: str, optional) : 'Display' to display the figures, 'Save' to save them at path_folder_out or 'Both'
+        name (type: str, optional) : Name to use for the saved files and figure titles
+        path_folder_out (type: str, optional) : Path to the folder for saving the graphs
+    """
+
+    # Main
+    ######
     # Formating the name and output path
     path_folder_out = os.path.join(path_folder_out, "figures")
     os.makedirs(path_folder_out, exist_ok=True)
@@ -298,6 +315,23 @@ def _plot_ramp(
     path_folder_out: str,
     num_ramp: int,
 ):
+    """
+    Description :
+
+        Plot and/or save figures for analyzing potentiostat data processing over a ramp
+
+    Args:
+
+        df_proc (type: pd.DataFrame) : Processed potentiostat data on the ramp
+        df_peak (type: pd.DataFrame) : Peaks in the processed potentiostat data on the ramp
+        mode (type: str, optional) : 'Display' to display the figures, 'Save' to save them at path_folder_out or 'Both'
+        name (type: str, optional) : Name to use for the saved files and figure titles
+        path_folder_out (type: str, optional) : Path to the folder for saving the graphs
+        num_ramp (type: int, optional) : Number of the ramp to plot
+    """
+
+    # Main
+    ######
     # Formating the name and output path
     path_folder_out = os.path.join(path_folder_out, "figures")
     os.makedirs(path_folder_out, exist_ok=True)
