@@ -16,7 +16,16 @@ Sub-package:
 
     driver : Sub-package focused on controlling, communicating and visualization the current state of the potentiostat
 
+        Sub-package:
+            gui
+            measurement_modes
+            utils
+
         Modules:
+            controller
+            device
+            logger
+            plotter
 """
 
 __version__ = "0.1.1"
