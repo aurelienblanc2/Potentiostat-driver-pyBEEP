@@ -115,12 +115,10 @@ pip install -r requirements.txt
 
 ```
 pyBEEP/
-├── project.toml                 # Project configuration (if used)
-├── pyBEEP.toml                  # Package configuration (if used)
+├── project.toml                 # Project configuration
 ├── README.md                    # This file
 ├── requirements.txt             # Python dependencies
-├── ruff.py                      # Linter/formatter config (if used)
-├── setup.py                     # Install script
+├── uv.lock                      # Lockfile used by UV for reproducible builds
 │
 ├── examples/                    # Example scripts for running experiments
 │   ├── example_CA.py
@@ -131,18 +129,22 @@ pyBEEP/
 │   ├── example_PSTEP.py
 │   └── methods_examples.py
 │
-└── src/
-    └── pyBEEP/
-        ├── constants.py         # Hardware and experiment constants
-        ├── controller.py        # High-level control and experiment logic
-        ├── device.py            # Low-level Modbus device communication
-        ├── logger.py            # Threaded data logging to file
-        ├── plotter.py           # Data plotting utilities
-        ├── utils.py             # Utility functions (e.g. file/folder selection)
-        ├── waveform_params.py   # Parameter validation for experiments
-        ├── waveforms_gal.py     # Potential-controlled waveform definitions
-        ├── waveforms_pot.py     # Current-controlled waveform definitions
-        └── __init__.py
+├── src/
+│   └── pyBEEP/
+│       ├── constants.py         # Hardware and experiment constants
+│       ├── controller.py        # High-level control and experiment logic
+│       ├── device.py            # Low-level Modbus device communication
+│       ├── logger.py            # Threaded data logging to file
+│       ├── plotter.py           # Data plotting utilities
+│       ├── utils.py             # Utility functions (e.g. file/folder selection)
+│       ├── waveform_params.py   # Parameter validation for experiments
+│       ├── waveforms_gal.py     # Potential-controlled waveform definitions
+│       ├── waveforms_pot.py     # Current-controlled waveform definitions
+│       └── __init__.py
+│
+└── tests/
+    ├── test_init.py             # Test files for the proper package import check
+
 ```
 
 - **examples/** contains working scripts that demonstrate how to use pyBEEP for different types of experiments.  

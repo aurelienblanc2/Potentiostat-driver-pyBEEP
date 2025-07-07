@@ -8,39 +8,39 @@ from typing import Callable, Any
 from pydantic import ValidationError, BaseModel
 from functools import partial
 
-from pyBEEP.driver.device import PotentiostatDevice
-from pyBEEP.driver.logger import DataLogger
-from pyBEEP.driver.measurement_modes.waveform_outputs import (
+from pyBEEP.device import PotentiostatDevice
+from pyBEEP.logger import DataLogger
+from pyBEEP.measurement_modes.waveform_outputs import (
     GalvanoOutput,
     PotenOutput,
     BaseOuput,
 )
-from pyBEEP.driver.measurement_modes.waveforms_ocp import ocp_waveform
-from pyBEEP.driver.utils.utils import (
+from pyBEEP.measurement_modes.waveforms_ocp import ocp_waveform
+from pyBEEP.utils.utils import (
     default_filename,
     convert_uint16_to_float32,
     select_folder,
 )
-from pyBEEP.driver.measurement_modes.waveforms_pot import (
+from pyBEEP.measurement_modes.waveforms_pot import (
     constant_waveform,
     linear_sweep,
     cyclic_voltammetry,
     potential_steps,
 )
-from pyBEEP.driver.measurement_modes.waveforms_gal import (
+from pyBEEP.measurement_modes.waveforms_gal import (
     single_point,
     linear_galvanostatic_sweep,
     cyclic_galvanostatic,
     current_steps,
 )
-from pyBEEP.driver.utils.constants import (
+from pyBEEP.utils.constants import (
     CMD,
     REG_READ_ADDR,
     REG_WRITE_ADDR_PID,
     REG_WRITE_ADDR_POT,
     BUSSY_DLAY_NS,
 )
-from pyBEEP.driver.measurement_modes.waveform_params import (
+from pyBEEP.measurement_modes.waveform_params import (
     ConstantWaveformParams,
     PotentialStepsParams,
     LinearSweepParams,
@@ -51,7 +51,7 @@ from pyBEEP.driver.measurement_modes.waveform_params import (
     CyclicGalvanostaticParams,
     OCPParams,
 )
-from pyBEEP.driver.measurement_modes.measurement_modes import (
+from pyBEEP.measurement_modes.measurement_modes import (
     ModeName,
     ControlMode,
     MeasurementMode,

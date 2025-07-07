@@ -1,57 +1,45 @@
 """
 Test files for the proper package import check
 
-Sub-package:
-    datapipeline : Sub-package focused on data processing, analysis and visualization of the potentiostat data
-        Modules:
-            cli : CLI for the sub-package datapipeline
-            data_processing : Data processing functions for the potentiostat
-            signal_processing : General Signal processing functions used for data processing of the potentiostat
-            types : Types Declaration for the sub-package datapipeline
-            visualization : Visualization of the potentiostat data
+    Sub-package:
+        gui
+        measurement_modes
+        utils
 
-    driver : Sub-package focused on controlling and communicating with the potentiostat
+    Modules:
+        controller
+        device
+        logger
+        plotter
 """
 
 
 def test_package_import() -> None:
-    """Test that the potentiostat package can be imported."""
+    """Test that the pyBEEP package can be imported."""
     import pyBEEP
 
     assert hasattr(pyBEEP, "__version__")
     assert isinstance(pyBEEP.__version__, str)
 
-    assert hasattr(pyBEEP, "datapipeline")
-    assert hasattr(pyBEEP, "driver")
+    # assert hasattr(pyBEEP, "gui")
+    assert hasattr(pyBEEP, "measurement_modes")
+    assert hasattr(pyBEEP, "utils")
+
+    assert hasattr(pyBEEP, "controller")
+    assert hasattr(pyBEEP, "device")
+    assert hasattr(pyBEEP, "logger")
+    assert hasattr(pyBEEP, "plotter")
 
 
-def test_datapipeline_import() -> None:
-    """Test that the datapipeline sub-package can be imported."""
-    from pyBEEP import datapipeline
-
-    assert hasattr(datapipeline, "cli")
-    assert hasattr(datapipeline, "data_processing")
-    assert hasattr(datapipeline, "signal_processing")
-    assert hasattr(datapipeline, "types")
-    assert hasattr(datapipeline, "visualization")
+def test_gui_import() -> None:
+    """Test that the gui sub-package can be imported."""
+    # from pyBEEP import gui
+    pass
 
 
-def test_driver_import() -> None:
-    """Test that the driver sub-package can be imported."""
-    from pyBEEP import driver
-
-    assert hasattr(driver, "measurement_modes")
-    assert hasattr(driver, "utils")
-
-    assert hasattr(driver, "controller")
-    assert hasattr(driver, "device")
-    assert hasattr(driver, "logger")
-    assert hasattr(driver, "plotter")
-
-
-def test_driver_measurement_modes_import() -> None:
-    """Test that the measurement_modes sub-package of the driver sub-package can be imported."""
-    from pyBEEP.driver import measurement_modes
+def test_measurement_modes_import() -> None:
+    """Test that the measurement_modes sub-package can be imported."""
+    from pyBEEP import measurement_modes
 
     assert hasattr(measurement_modes, "measurement_modes")
     assert hasattr(measurement_modes, "waveform_outputs")
@@ -62,8 +50,8 @@ def test_driver_measurement_modes_import() -> None:
 
 
 def test_driver_utils_import() -> None:
-    """Test that the measurement_modes sub-package of the driver sub-package can be imported."""
-    from pyBEEP.driver import utils
+    """Test that the measurement_modes sub-package can be imported."""
+    from pyBEEP import utils
 
     assert hasattr(utils, "constants")
     assert hasattr(utils, "utils")

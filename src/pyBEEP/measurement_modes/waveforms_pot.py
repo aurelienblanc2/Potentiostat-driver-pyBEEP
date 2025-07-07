@@ -1,11 +1,11 @@
 import numpy as np
 
-from pyBEEP.driver.measurement_modes.waveform_outputs import (
+from pyBEEP.measurement_modes.waveform_outputs import (
     PotenOutput,
     SteppedPotenOutput,
     CyclicPotenOutput,
 )
-from pyBEEP.driver.utils.constants import POINT_INTERVAL
+from pyBEEP.utils.constants import POINT_INTERVAL
 
 
 def constant_waveform(potential: float, duration: float) -> PotenOutput:

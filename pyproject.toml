@@ -1,7 +1,7 @@
 [project]
 name = "pyBEEP"
 version = "0.1.1"
-description = "Python library for controlling, acquiring and processing data from a custom potentiostat."
+description = "Python library for controlling and acquiring data from a custom potentiostat."
 authors = [
     { name="adpisa" },
     { name = "Aurelien BLANC", email = "aurelien.blanc@utoronto.ca" }
@@ -23,7 +23,6 @@ dependencies = [
     "matplotlib>=3.10.3",
     "pandas>=2.3.0",
     "pydantic>=2.11.7",
-    "scipy>=1.16.0",
 ]
 
 [dependency-groups]
@@ -38,14 +37,8 @@ dev = [
 requires = ["setuptools >= 80.9.0", ]
 build-backend = "setuptools.build_meta"
 
-
-[project.scripts]
-process_raw_cli = "pyBEEP.datapipeline.cli:process_raw_cli"
-peak_detection_proc_cli = "pyBEEP.datapipeline.cli:peak_detection_proc_cli"
-
-
 [tool.pyright]
-include = ["potentiostat"]
+include = ["src"]
 exclude = [".venv"]
 venvPath = "."
 venv = ".venv"

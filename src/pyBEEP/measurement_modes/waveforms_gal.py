@@ -1,10 +1,10 @@
 import numpy as np
 
-from pyBEEP.driver.measurement_modes.waveform_outputs import (
+from pyBEEP.measurement_modes.waveform_outputs import (
     GalvanoOutput,
     CyclicGalvanoOutput,
 )
-from pyBEEP.driver.utils.constants import POINT_INTERVAL
+from pyBEEP.utils.constants import POINT_INTERVAL
 
 
 def single_point(current: float, duration: float) -> GalvanoOutput:

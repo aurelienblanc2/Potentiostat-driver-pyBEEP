@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import _csv
 
-from pyBEEP.driver.utils.constants import POINT_INTERVAL
+from pyBEEP.utils.constants import POINT_INTERVAL
 
 logger = logging.getLogger(__name__)
 
