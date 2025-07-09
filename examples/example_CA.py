@@ -12,7 +12,8 @@ setup_logging(level=logging.INFO)
 device = PotentiostatDevice(port="COM5", address=1)
 controller = PotentiostatController(device=device)
 
-folder = r"C:\Users\pinillas\OneDrive - ICFO\Desktop"
+folder = os.path.join(os.getcwd(), "examples_results")
+os.makedirs(folder, exist_ok=True)
 
 # --- 1. Constant Amperometry (CA) ---
 ca_file = os.path.join(folder, "test_CA.csv")
