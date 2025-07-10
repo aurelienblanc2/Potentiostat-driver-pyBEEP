@@ -134,7 +134,7 @@ pyBEEP/
 │       └── __init__.py
 │
 └── tests/
-    ├── test_init.py             # Test files for the proper package import check
+    └── test_init.py             # Test files for the proper package import check
 
 ```
 
