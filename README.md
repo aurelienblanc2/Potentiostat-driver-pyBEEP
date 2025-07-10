@@ -1,12 +1,21 @@
-# pyBEEP
-
+# Potentiostat Driver - pyBEEP
 
 Welcome to **pyBEEP** – a Python library for controlling BEEP (Basic Electrochemical Experimentation Potentiostat).  
-Run common electrochemical experiments (chronoamperometry, chronopotentiometry, cyclic voltammetry, and more) with robust data logging and plotting.
+Run common electrochemical experiments (chronoamperometry, chronopotentiometry, cyclic voltammetry, and more) with 
+robust data logging and plotting.
+
+This driver is designed to be used alongside the following:
+- Potentiostat [**firmware**](https://github.com/aurelienblanc2/Potentiostat-firmware)
+- Potentiostat python package datapipeline [**potentiopipe**](https://github.com/aurelienblanc2/Potentiostat-datapipeline)
+
+If you’d like to share or explore all three related repositories together, here is a [**link**](https://github.com/stars/aurelienblanc2/lists/potentiostat)
+
+Below, an image of the Potentiostat device:
+![Potentiostat](docs/Potentiostat.png)
 
 ---
 
-## Overview
+# Overview
 
 pyBEEP provides:
 - An easy interface for running standard electrochemical experiments over serial (Modbus).
@@ -16,7 +25,7 @@ pyBEEP provides:
 
 ---
 
-## Main Functionalities
+# Main Functionalities
 
 - **Easy experiment setup and execution:**  
   Use `PotentiostatController.apply_measurement()` to run a wide range of electrochemical experiments.
@@ -42,7 +51,7 @@ pyBEEP provides:
 
 ---
 
-## Installation
+# Installation
 
 Clone this repository and install using pip:
 
@@ -54,7 +63,7 @@ pip install .
 
 ---
 
-## Usage
+# Example of use
 
 ```python
 from pyBEEP import PotentiostatDevice, PotentiostatController
@@ -93,25 +102,7 @@ controller.apply_measurement(
 
 ---
 
-## Requirements
-
-- Python 3.10+
-- `minimalmodbus`
-- `numpy`
-- `pydantic`
-- `matplotlib`
-- `pandas`
-
-
-Install dependencies with:
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## File Structure
+# File Structure
 
 ```
 pyBEEP/
@@ -152,7 +143,7 @@ pyBEEP/
 
 ---
 
-## Notes
+# Notes
 
 - Select the TIA gain (`tia_gain`) carefully to match your experimental current/potential range.
 - The library creates CSV files with timestamp, experiment type, and parameters in the filename.
@@ -160,36 +151,28 @@ pyBEEP/
 
 ---
 
-## Roadmap & Planned Features
-
-- Support for Electrochemical Impedance Spectroscopy (EIS)
-- Graphical user interface (GUI) for experiment management
-- Extended data analysis and export options
-
-See the [pending_to_add] for the latest roadmap and bug tracker.
-
----
-
-## Bugs & Support
+# Bugs & Support
 
 If you encounter a bug, have a feature request, or need help:
-- Please open an  [pending_to_add]
+- contact: aurelien.blanc@utoronto.ca
 - Or contact: adpisa@gmail.com
 
 ---
 
-## Contributing
+# Contributing
 
 Contributions are very welcome!  
 If you’d like to add features, fix bugs, or improve documentation, please submit a merge request or open an issue to discuss your ideas.
 
 ---
-## License
+
+# License
 
 MIT License
 
-## Author
+# Author
 
-Adrián Pinilla-Sánchez - adpisa@gmail.com
+Adrián Pinilla-Sánchez - adpisa@gmail.com  
+Aurelien Blanc - aurelien.blanc@utoronto.ca
 
 ---
