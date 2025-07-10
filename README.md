@@ -108,8 +108,11 @@ controller.apply_measurement(
 pyBEEP/
 ├── project.toml                 # Project configuration
 ├── README.md                    # This file
+├── docs                         # Folder for the ressources used by the README.md
+├── LICENSE                      # MIT
 ├── requirements.txt             # Python dependencies
 ├── uv.lock                      # Lockfile used by UV for reproducible builds
+├── .pre-commit-config.yaml      # Pre-commit configuration for developing this package
 │
 ├── examples/                    # Example scripts for running experiments
 │   ├── example_CA.py
