@@ -56,7 +56,7 @@ pyBEEP provides:
 Clone this repository and install using pip:
 
 ```bash
-git clone https://github.com/adpisa/pyBEEP.git
+git clone https://github.com/aurelienblanc2/Potentiostat-driver-pyBEEP
 cd pyBEEP
 pip install .
 ```
@@ -137,7 +137,7 @@ pyBEEP/
 │       └── __init__.py
 │
 └── tests/
-    ├── test_init.py             # Test files for the proper package import check
+    └── test_init.py             # Test files for the proper package import check
 
 ```
 
