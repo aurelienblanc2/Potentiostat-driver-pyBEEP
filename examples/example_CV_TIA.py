@@ -12,7 +12,7 @@ setup_logging(level=logging.INFO)
 device = PotentiostatDevice(port="COM5", address=1)
 controller = PotentiostatController(device=device)
 
-folder = os.path.join(os.getcwd(), "examples_results")
+folder = os.path.join("results", "example_CV_TIA")
 os.makedirs(folder, exist_ok=True)
 paths = []
 

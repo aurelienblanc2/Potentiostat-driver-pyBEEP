@@ -116,12 +116,12 @@ pyBEEP/
 │
 ├── examples/                    # Example scripts for running experiments
 │   ├── example_CA.py
-│   ├── example_CA_TIA_test.py
+│   ├── example_CA_TIA.py
 │   ├── example_CV.py
-│   ├── example_CV_TIA_test.py
+│   ├── example_CV_TIA.py
 │   ├── example_LSV.py
 │   ├── example_PSTEP.py
-│   └── methods_examples.py
+│   └── examples_methods.py
 │
 ├── src/
 │   └── pyBEEP/

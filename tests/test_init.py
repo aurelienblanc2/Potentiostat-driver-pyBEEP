@@ -33,8 +33,9 @@ def test_package_import() -> None:
 
 def test_gui_import() -> None:
     """Test that the gui sub-package can be imported."""
-    # from pyBEEP import gui
-    pass
+    from pyBEEP import gui
+
+    assert hasattr(gui, "main_window")
 
 
 def test_measurement_modes_import() -> None:

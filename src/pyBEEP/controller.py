@@ -164,7 +164,7 @@ class PotentiostatController:
         Returns:
             list[str]: A list of string keys for supported measurement modes (e.g. 'CA', 'CV', 'LSV', etc.).
         """
-        return list(self._measurement_modes.keys())
+        return [enum.value for enum in list(self._measurement_modes.keys())]
 
     def get_mode_params(self, mode: str) -> dict[str, Any]:
         """
@@ -308,7 +308,7 @@ class PotentiostatController:
             tia_gain (int, optional): Transimpedance amplifier gain setting. Defaults to 0.
             sampling_interval (int | float | None): If set, will average every N rows before saving. Defaults to None (no reduction).
             filename (str | None, optional): File path for storing measurement data. If None, a default is generated.
-            folder (str | None, optional): Folder for storing the file. Used if filepath is None.
+            folder (str | None, optional): Folder for storing the file. If None, a pop-up will ask for the folder.
 
         Raises:
             ValueError: If the mode is unknown or parameter validation fails.

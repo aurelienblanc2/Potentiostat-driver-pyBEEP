@@ -12,7 +12,7 @@ setup_logging(level=logging.INFO)
 device = PotentiostatDevice(port="COM4", address=1)
 controller = PotentiostatController(device=device)
 
-folder = os.path.join(os.getcwd(), "examples_results")
+folder = os.path.join("results", "example_PSTEP")
 os.makedirs(folder, exist_ok=True)
 
 # --- 4. Potential Steps (PSTEP) ---
