@@ -19,11 +19,15 @@ Sub-package:
 
 __version__ = "0.1.2"
 
-from pyBEEP.controller import PotentiostatController
+from pyBEEP.controller import (
+    PotentiostatController,
+    connect_to_potentiostat,
+    connect_to_potentiostats,
+)
 from pyBEEP.device import PotentiostatDevice
 from pyBEEP.plotter import plot_time_series, plot_cv_cycles, plot_iv_curve
 from pyBEEP.utils import setup_logging
-from pyBEEP.gui import Launch_GUI
+from pyBEEP.gui import launch_GUI
 
 __all__ = [
     "PotentiostatController",
@@ -32,5 +36,7 @@ __all__ = [
     "plot_cv_cycles",
     "plot_iv_curve",
     "setup_logging",
-    "Launch_GUI",
+    "launch_GUI",
+    "connect_to_potentiostat",
+    "connect_to_potentiostats",
 ]

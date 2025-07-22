@@ -1,16 +1,14 @@
 import os
 import logging
 from pyBEEP import (
-    PotentiostatDevice,
-    PotentiostatController,
     plot_time_series,
     setup_logging,
+    connect_to_potentiostat,
 )
 
 setup_logging(level=logging.INFO)
 
-device = PotentiostatDevice(port="COM5", address=1)
-controller = PotentiostatController(device=device)
+controller = connect_to_potentiostat()
 
 folder = os.path.join("results", "example_CA_TIA")
 os.makedirs(folder, exist_ok=True)

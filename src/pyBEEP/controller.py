@@ -2,8 +2,9 @@ from queue import Queue
 import numpy as np
 import queue
 import threading
-from time import monotonic_ns
 import logging
+import serial.tools.list_ports
+from time import monotonic_ns
 from typing import Callable, Any
 from pydantic import ValidationError, BaseModel
 from functools import partial
@@ -638,3 +639,51 @@ class PotentiostatController:
         logger.info(
             f"Actual points expected to read: {2 * params['wr_tx_reg']}, actual read: {params['rd_tx_reg']}, extra read operations: {int((params['rd_tx_reg'] - params['wr_tx_reg'] * 2) / 120)}\n"
         )
+
+
+def connect_to_potentiostat():
+    ports = serial.tools.list_ports.comports()
+    device = None
+    if not ports:
+        raise ConnectionError(
+            "No ports found, verify that the device is connected (and flashed) then try again"
+        )
+
+    for port in ports:
+        if (port.vid == 2022) and (port.pid == 22099):
+            device = PotentiostatDevice(port=port.name, address=1)
+            break
+
+    if device is None:
+        raise ConnectionError(
+            "No port found for the potentiostat, verify that the device is connected (and flashed) then try again"
+        )
+    else:
+        controller = PotentiostatController(device=device)
+
+    return controller
+
+
+def connect_to_potentiostats():
+    ports = serial.tools.list_ports.comports()
+    list_controller = []
+
+    if not ports:
+        raise ConnectionError(
+            "No ports found, verify that the device is connected (and flashed) then try again"
+        )
+
+    for port in ports:
+        if (port.vid == 2022) and (port.pid == 22099):
+            try:
+                device = PotentiostatDevice(port=port.name, address=1)
+                list_controller.append(PotentiostatController(device=device))
+            except ConnectionError:
+                print(f"Failed to connect to {port.name}")
+
+    if len(list_controller) == 0:
+        raise ConnectionError(
+            "No port found for the potentiostat, verify that the device is connected (and flashed) then try again"
+        )
+
+    return list_controller

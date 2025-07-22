@@ -3,9 +3,7 @@ import sys
 import ast
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-import serial.tools.list_ports
-from pyBEEP.device import PotentiostatDevice
-from pyBEEP.controller import PotentiostatController
+from pyBEEP.controller import connect_to_potentiostat
 from pyBEEP import __version__
 
 
@@ -17,7 +15,7 @@ class GUI:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         # Potentiostat controller
-        self.controller = self.connect_to_potentiostat()
+        self.controller = connect_to_potentiostat()
 
         # Getting the available mode from the Potentiostat
         self.mode_list = self.controller.get_available_modes()
@@ -114,28 +112,6 @@ class GUI:
         self.parameters_entry = []
 
         self.display_initial_grid()
-
-    def connect_to_potentiostat(self):
-        ports = serial.tools.list_ports.comports()
-        device = None
-        if not ports:
-            raise ValueError(
-                "No ports found, verify that the device is connected (and flashed) then try again"
-            )
-
-        for port in ports:
-            if (port.vid == 2022) and (port.pid == 22099):
-                device = PotentiostatDevice(port=port.name, address=1)
-                break
-
-        if device is None:
-            raise ValueError(
-                "No port found for the potentiostat, verify that the device is connected (and flashed) then try again"
-            )
-        else:
-            controller = PotentiostatController(device=device)
-
-        return controller
 
     def display_initial_grid(self):
         # Mode
@@ -338,7 +314,7 @@ class GUI:
         sys.exit()
 
 
-def Launch_GUI():
+def launch_GUI():
     root = tk.Tk()
     GUI(root)
     root.mainloop()
@@ -346,4 +322,4 @@ def Launch_GUI():
 
 # Run the app
 if __name__ == "__main__":
-    Launch_GUI()
+    launch_GUI()

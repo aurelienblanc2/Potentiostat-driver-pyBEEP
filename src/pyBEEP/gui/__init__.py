@@ -1,3 +1,3 @@
-from pyBEEP.gui.main_window import Launch_GUI
+from pyBEEP.gui.main_window import launch_GUI
 
-__all__ = ["Launch_GUI"]
+__all__ = ["launch_GUI"]

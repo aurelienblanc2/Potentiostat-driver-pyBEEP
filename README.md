@@ -25,6 +25,22 @@ pyBEEP provides:
 
 ---
 
+# Table of Contents
+
+- [Main Functionalities](#main-functionalities)
+- [Installation](#installation)
+- [How to use](#how-to-use)
+  - [pyBEEP GUI](#pybeep-gui)
+  - [Examples](#examples)
+- [File Structure](#file-structure)
+- [Notes](#notes)
+- [Bugs & Support](#bugs--support)
+- [Contributing](#contributing)
+- [License](#license)
+- [Author](#author)
+
+---
+
 # Main Functionalities
 
 - **Easy experiment setup and execution:**  
@@ -63,7 +79,27 @@ pip install .
 
 ---
 
-# Example of use
+# How to use
+
+## pyBEEP GUI
+
+After installing the package, a terminal command is available to open the pyBEEP GUI
+```bash
+pyBEEP_GUI
+```
+This function can also be called directly in Python once the package is imported
+```python
+import pyBEEP
+
+pyBEEP.launch_GUI()
+```
+
+The GUI provides a simple way to configure and run an experiment.
+
+## Examples
+
+A very simple example to start using the Potentiostat driver is provided below. Keep in mind that the [examples](https://github.com/aurelienblanc2/Potentiostat-driver-pyBEEP/tree/main/examples) 
+folder in the repository provides use cases for the different modes of the potentiostat.
 
 ```python
 from pyBEEP import PotentiostatDevice, PotentiostatController
@@ -106,7 +142,7 @@ controller.apply_measurement(
 
 ```
 pyBEEP/
-├── project.toml                 # Project configuration
+├── pyproject.toml               # Project configuration
 ├── README.md                    # This file
 ├── docs                         # Folder for the ressources used by the README.md
 ├── LICENSE                      # MIT
@@ -119,22 +155,36 @@ pyBEEP/
 │   ├── example_CA_TIA.py
 │   ├── example_CV.py
 │   ├── example_CV_TIA.py
+│   ├── example_GCV.py
 │   ├── example_LSV.py
+│   ├── example_OCP.py
 │   ├── example_PSTEP.py
 │   └── examples_methods.py
 │
 ├── src/
 │   └── pyBEEP/
-│       ├── constants.py         # Hardware and experiment constants
+│       ├── __init__.py 
 │       ├── controller.py        # High-level control and experiment logic
 │       ├── device.py            # Low-level Modbus device communication
 │       ├── logger.py            # Threaded data logging to file
 │       ├── plotter.py           # Data plotting utilities
-│       ├── utils.py             # Utility functions (e.g. file/folder selection)
-│       ├── waveform_params.py   # Parameter validation for experiments
-│       ├── waveforms_gal.py     # Potential-controlled waveform definitions
-│       ├── waveforms_pot.py     # Current-controlled waveform definitions
-│       └── __init__.py
+│       ├── utils
+│       │   ├── __init__.py 
+│       │   ├── utils.py            # Utility functions (e.g. file/folder selection)
+│       │   └──constants.py         # Hardware and experiment constants
+│       │
+│       ├── measurement_modes
+│       │   ├── __init__.py 
+│       │   ├── measurement_modes.py
+│       │   ├── waveform_outputs.py
+│       │   ├── waveform_params.py
+│       │   ├── waveforms_gal.py
+│       │   ├── waveforms_ocp.py
+│       │   └── waveforms_pot.py
+│       │
+│       └── gui
+│           ├── __init__.py
+│           └── main_window.py
 │
 └── tests/
     └── test_init.py             # Test files for the proper package import check
@@ -172,6 +222,8 @@ If you’d like to add features, fix bugs, or improve documentation, please subm
 # License
 
 MIT License
+
+---
 
 # Author
 
